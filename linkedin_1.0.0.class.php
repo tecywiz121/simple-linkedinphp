@@ -143,29 +143,6 @@ class linkedin {
 	public function get_callback() {
 	  return $this->callback;
 	}
-	
-	/**
-	 * General data retrieval function.
-	 * 
-	 * Takes an array of parameters as input, formats the data and requests a data 
-	 * retrieval from the Linkedin API.      	 
-	 * 
-	 * @param    arr     $options      An array of data options.	 
-	 * @return   xml                   XML formatted data.
-	 */
-	public function get_data($options = array('data' => NULL, 'profile' => '~', 'fields' => array())) {
-		// start formatting query
-    $query = self::_URL_API . '/v1/people/' . $options['profile'];
-		if(!empty($options['data'])) {
-		  // data option were set, include them
-			$query .= '/' . $options['data'];
-		}
-		if(!empty($options['fields'])) {
-		  // field selectors set, include them
-			$query .= ':(' . implode(',', $options['fields']) . ')';
-		}
-		return $this->request('GET', $query);
-	}
   
 	/**
 	 * Get the token_access property.
@@ -183,6 +160,21 @@ class linkedin {
 	 */
 	public function get_token_request() {
 	  return $this->token_request;
+	}
+	
+	/**
+	 * General profile retrieval function.
+	 * 
+	 * Takes an array of parameters as input, formats the data and requests a data 
+	 * retrieval from the Linkedin Profile API.      	 
+	 * 
+	 * @param    arr     $options      An array of data options.	 
+	 * @return   xml                   XML formatted data.
+	 */
+	public function profile($options = '~') {
+		// start formatting query
+    $query = self::_URL_API . '/v1/people/' . $options['profile'];
+		return $this->request('GET', $query);
 	}
 	
 	/**
@@ -476,7 +468,7 @@ class linkedin {
        * 1) No HTML permitted except those found in _NETWORK_HTML constant
        */
       // get the user data
-      $response = self::get_data();
+      $response = self::profile();
       
       /** 
        * We are converting response to usable data.  I'd use SimpleXML here, but
