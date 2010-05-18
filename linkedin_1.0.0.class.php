@@ -234,12 +234,8 @@ class linkedin {
         // revocation successful, clear object's request/access tokens
         $this->set_token_access(NULL);
         $this->set_token_request(NULL);
-        $return_data = TRUE;
-      } else {
-        // there was an error, return error
-        $return_data = $response;
       }
-      return $return_data;
+      return $response;
     } catch(LinkedInException $e) {
       // linkedin exception raised
       throw new LinkedInException('LinkedIn exception caught: ' . $e->getMessage());
@@ -383,8 +379,7 @@ class linkedin {
 	 * @param    str     $token        The token returned from the user authorization stage.
 	 * @param    str     $secret       The secret returned from the request token stage.
 	 * @param    str     $verifier     The verification value from LinkedIn.	 
-	 * @return   arr                   The Linkedin oauth response, in array format. 
-	 * @return   bool                  FALSE if token retrieval failed.      	 
+	 * @return   arr                   The Linkedin oauth/http response, in array format.      	 
 	 */
 	public function token_access($token, $secret, $verifier) {
 	  try {
@@ -394,17 +389,8 @@ class linkedin {
       $oauth_req->sign_request($this->method, $this->consumer, $token_access);
       
       $response = self::send_request($oauth_req, LINKEDIN::_URL_ACCESS, 'POST');
-      parse_str($response['linkedin'], $oauth);
-      if(array_key_exists('oauth_problem', $oauth)) {
-        // there was an error 
-        $return_data = FALSE;
-        $this->set_token_access(NULL);
-      } else {
-        // looks like it worked, return the data
-        $return_data = $oauth;
-        $this->set_token_access($oauth);
-      }
-      return $return_data;
+      parse_str($response['linkedin'], $response['linkedin']);
+      return $response;
     } catch(LinkedInException $e) {
       // linkedin exception raised
       throw new LinkedInException('LinkedIn exception caught: ' . $e->getMessage());
@@ -417,8 +403,7 @@ class linkedin {
 	/**
 	 * Get the request token from the Linkedin API.
 	 * 
-	 * @return   arr                   The Linkedin oauth response, in array format. 
-	 * @return   bool                  FALSE if token retrieval failed.      	 
+	 * @return   arr                   The Linkedin oauth/http response, in array format.      	 
 	 */
 	public function token_request() {
 	  try {
@@ -427,17 +412,9 @@ class linkedin {
       $oauth_req->sign_request($this->method, $this->consumer, NULL);
       
       $response = self::send_request($oauth_req, LINKEDIN::_URL_REQUEST, 'POST');
-      parse_str($response['linkedin'], $oauth);
-      if(array_key_exists('oauth_problem', $oauth)) {
-        // there was an error 
-        $return_data = FALSE;
-        $this->set_token_request(NULL);
-      } else {
-        // looks like it worked, return the data
-        $return_data = $oauth;
-        $this->set_token_request($oauth);
-      }
-      return $return_data;
+      //parse_str($response['linkedin'], $oauth);
+      parse_str($response['linkedin'], $response['linkedin']);
+      return $response;
     } catch(LinkedInException $e) {
       // linkedin exception raised
       throw new LinkedInException('LinkedIn exception caught: ' . $e->getMessage());
