@@ -234,8 +234,11 @@ class linkedin {
         // revocation successful, clear object's request/access tokens
         $this->set_token_access(NULL);
         $this->set_token_request(NULL);
+        $return_data = TRUE;
+      } else {
+        $return_data = $response;
       }
-      return $response;
+      return $return_data;
     } catch(LinkedInException $e) {
       // linkedin exception raised
       throw new LinkedInException('LinkedIn exception caught: ' . $e->getMessage());
