@@ -168,12 +168,12 @@ class linkedin {
 	 * Takes an array of parameters as input, formats the data and requests a data 
 	 * retrieval from the Linkedin Profile API.      	 
 	 * 
-	 * @param    arr     $options      An array of data options.	 
+	 * @param    str     $options      An array of data options.	 
 	 * @return   xml                   XML formatted data.
 	 */
 	public function profile($options = '~') {
 		// start formatting query
-    $query = self::_URL_API . '/v1/people/' . $options['profile'];
+    $query = self::_URL_API . '/v1/people/' . $options;
 		return $this->request('GET', $query);
 	}
 	
@@ -393,6 +393,13 @@ class linkedin {
       
       $response = self::send_request($oauth_req, LINKEDIN::_URL_ACCESS, 'POST');
       parse_str($response['linkedin'], $response['linkedin']);
+      if($response['info']['http_code'] == 200) {
+        // tokens retrieved
+        $this->set_token_access($response['linkedin']);
+      } else {
+        // erro getting the request tokens
+        $this->set_token_access(NULL);
+      }
       return $response;
     } catch(LinkedInException $e) {
       // linkedin exception raised
@@ -415,8 +422,14 @@ class linkedin {
       $oauth_req->sign_request($this->method, $this->consumer, NULL);
       
       $response = self::send_request($oauth_req, LINKEDIN::_URL_REQUEST, 'POST');
-      //parse_str($response['linkedin'], $oauth);
       parse_str($response['linkedin'], $response['linkedin']);
+      if($response['info']['http_code'] == 200) {
+        // tokens retrieved
+        $this->set_token_request($response['linkedin']);
+      } else {
+        // erro getting the request tokens
+        $this->set_token_request(NULL);
+      }
       return $response;
     } catch(LinkedInException $e) {
       // linkedin exception raised
