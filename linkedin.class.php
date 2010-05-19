@@ -171,7 +171,7 @@ class linkedin {
 	 * @param    arr     $response     The LinkedIn response.         	 
 	 * @return   bool                  TRUE/FALSE depending on content of response.                  
 	 */
-	protected static function is_throttled($response) {
+	public static function is_throttled($response) {
 	  // store the response in a temp variable
     $temp_response = self::xml_to_array($response['linkedin']);
 	  
