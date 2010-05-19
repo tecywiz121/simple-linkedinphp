@@ -172,22 +172,30 @@ class linkedin {
 	 * @return   bool                  TRUE/FALSE depending on content of response.                  
 	 */
 	public static function is_throttled($response) {
-	  // store the response in a temp variable
-    $temp_response = self::xml_to_array($response['linkedin']);
-	  
-	  // check to see if we have an error
-  	if(array_key_exists('error', $temp_response)) {
-  	  // we do, check for 403 code
-  	  if($temp_response['error']['children']['status']['content'] == 403) {
-  	    // we have it, check for throttle error
-  	    if(preg_match('/throttle/i', $temp_response['error']['children']['message']['content'])) {
-  	      // we have hit a throttle limit
-  	      $return_data = TRUE;
-  	    } else {
-  	      // some other error
-  	      $return_data = FALSE;
-  	    }
-  	  }
+	  // set the default
+	  $return_data = FALSE;
+    
+    // check the variable
+	  if(is_array($response)) {
+	    // we have an array
+	    if(array_key_exists('linkedin', $response)) {
+	      // we have a properly formatted linkedin response
+	       
+        // store the response in a temp variable
+        $temp_response = self::xml_to_array($response['linkedin']);
+    	  
+    	  // check to see if we have an error
+      	if(array_key_exists('error', $temp_response)) {
+      	  // we do, check for 403 code
+      	  if($temp_response['error']['children']['status']['content'] == 403) {
+      	    // we have it, check for throttle error
+      	    if(preg_match('/throttle/i', $temp_response['error']['children']['message']['content'])) {
+      	      // we have hit a throttle limit
+      	      $return_data = TRUE;
+      	    }
+      	  }
+    	  }
+    	}
   	}
   	return $return_data;
 	}
