@@ -70,7 +70,7 @@
  *                            http://developer.linkedin.com/message/4626#4626
  *                            http://developer.linkedin.com/message/3193#3193 
  *    
- * @version   1.0.1 - 17/05/2010
+ * @version   1.1.0 - 19/05/2010
  * @author    Paul Mennega <pmmenneg@gmail.com>
  * @copyright Copyright 2010, Paul Mennega 
  * @license   http://www.opensource.org/licenses/mit-license.php The MIT License 
@@ -102,8 +102,6 @@ class linkedin {
   const _NETWORK_HTML   = '<a>';
   
   const _STATUS_LENGTH  = 140;
-  
-  const _THROTTLE_ERROR = 430;
   
 	const _URL_ACCESS     = 'https://www.linkedin.com/uas/oauth/accessToken';
 	const _URL_API        = 'https://api.linkedin.com';
@@ -165,6 +163,33 @@ class linkedin {
 	 */
 	public function get_token_request() {
 	  return $this->token_request;
+	}
+	
+	/**
+	 * Checks the passed LinkedIn response to see if we have hit a throttling limit.	 
+	 * 
+	 * @param    arr     $response     The LinkedIn response.         	 
+	 * @return   bool                  TRUE/FALSE depending on content of response.                  
+	 */
+	protected static function is_throttled($response) {
+	  // store the response in a temp variable
+    $temp_response = self::xml_to_array($response['linkedin']);
+	  
+	  // check to see if we have an error
+  	if(array_key_exists('error', $temp_response)) {
+  	  // we do, check for 403 code
+  	  if($temp_response['error']['children']['status']['content'] == 403) {
+  	    // we have it, check for throttle error
+  	    if(preg_match('/throttle/i', $temp_response['error']['children']['message']['content'])) {
+  	      // we have hit a throttle limit
+  	      $return_data = TRUE;
+  	    } else {
+  	      // some other error
+  	      $return_data = FALSE;
+  	    }
+  	  }
+  	}
+  	return $return_data;
 	}
 	
 	/**
@@ -254,32 +279,6 @@ class linkedin {
 	}
 	
 	/**
-	 * A pass-through function that will check for 'throttle-limit' LinkedIn API
-	 * response.  If found, the passed http_error will be switched to 
-	 * _THROTTLE_ERROR so that the end-user can process as needed.	 
-	 * 
-	 * @param    arr     $response     The LinkedIn response.         	 
-	 * @return   arr                   A potentially modified response array.                  
-	 */
-	protected static function scrub_response($response) {
-	  // store the response in a temp variable
-    $temp_response = self::xml_to_array($response['linkedin']);
-	  
-	  // check to see if we have an error
-  	if(array_key_exists('error', $temp_response)) {
-  	  // we do, check for 403 code
-  	  if($temp_response['error']['children']['status']['content'] == 403) {
-  	    // we have it, check for throttle error
-  	    if(preg_match('/throttle/i', $temp_response['error']['children']['message']['content'])) {
-  	      // we have hit a throttle, set custom http error
-  	      $response['info']['http_code'] = self::_THROTTLE_ERROR;
-  	    }
-  	  }
-  	}
-  	return $response;
-	}
-	
-	/**
 	 * Static Linkedin curl specific method, returning response:
 	 * 
 	 * array(
@@ -337,7 +336,7 @@ class linkedin {
         curl_close($handle);
         
         // no exceptions thrown, return the data
-        return self::scrub_response($return_data);
+        return $return_data;
       } else {
         // cURL failed to start
         throw new LinkedInException('cURL did not initialize properly.');
