@@ -65,7 +65,10 @@
  * Connections API:				    http://developer.linkedin.com/docs/DOC-1004
  * Status Update API:			    http://developer.linkedin.com/docs/DOC-1007
  * Search API:					      http://developer.linkedin.com/docs/DOC-1005
- * Industry Codes:				    http://developer.linkedin.com/docs/DOC-1011 * 
+ * Industry Codes:				    http://developer.linkedin.com/docs/DOC-1011
+ * Throttle Limits:           http://developer.linkedin.com/docs/DOC-1112
+ *                            http://developer.linkedin.com/message/4626#4626
+ *                            http://developer.linkedin.com/message/3193#3193 
  *    
  * @version   1.0.1 - 17/05/2010
  * @author    Paul Mennega <pmmenneg@gmail.com>
@@ -93,18 +96,20 @@ class LinkedInException extends Exception {}
  * @package classpackage
  */
 class linkedin {
-  const _API_KEY       = '<your LinkedIn API key here>';
-  const _API_SECRET    = '<your LinkedIn API secret here>';
+  const _API_KEY        = '<your LinkedIn API key here>';
+  const _API_SECRET     = '<your LinkedIn API secret here>';
   
-  const _NETWORK_HTML  = '<a>';
+  const _NETWORK_HTML   = '<a>';
   
-  const _STATUS_LENGTH = 140;
+  const _STATUS_LENGTH  = 140;
   
-	const _URL_ACCESS    = 'https://www.linkedin.com/uas/oauth/accessToken';
-	const _URL_API       = 'https://api.linkedin.com';
-	const _URL_AUTH      = 'https://www.linkedin.com/uas/oauth/authorize?oauth_token=';
-	const _URL_REQUEST   = 'https://www.linkedin.com/uas/oauth/requestToken';
-	const _URL_REVOKE    = 'https://www.linkedin.com/uas/oauth/invalidateToken';
+  const _THROTTLE_ERROR = 430;
+  
+	const _URL_ACCESS     = 'https://www.linkedin.com/uas/oauth/accessToken';
+	const _URL_API        = 'https://api.linkedin.com';
+	const _URL_AUTH       = 'https://www.linkedin.com/uas/oauth/authorize?oauth_token=';
+	const _URL_REQUEST    = 'https://www.linkedin.com/uas/oauth/requestToken';
+	const _URL_REVOKE     = 'https://www.linkedin.com/uas/oauth/invalidateToken';
 
   public $consumer, $method;
   
@@ -249,6 +254,32 @@ class linkedin {
 	}
 	
 	/**
+	 * A pass-through function that will check for 'throttle-limit' LinkedIn API
+	 * response.  If found, the passed http_error will be switched to 
+	 * _THROTTLE_ERROR so that the end-user can process as needed.	 
+	 * 
+	 * @param    arr     $response     The LinkedIn response.         	 
+	 * @return   arr                   A potentially modified response array.                  
+	 */
+	protected static function scrub_response($response) {
+	  // store the response in a temp variable
+    $temp_response = self::xml_to_array($response['linkedin']);
+	  
+	  // check to see if we have an error
+  	if(array_key_exists('error', $temp_response)) {
+  	  // we do, check for 403 code
+  	  if($temp_response['error']['children']['status']['content'] == 403) {
+  	    // we have it, check for throttle error
+  	    if(preg_match('/throttle/i', $temp_response['error']['children']['message']['content'])) {
+  	      // we have hit a throttle, set custom http error
+  	      $response['info']['http_code'] = self::_THROTTLE_ERROR;
+  	    }
+  	  }
+  	}
+  	return $response;
+	}
+	
+	/**
 	 * Static Linkedin curl specific method, returning response:
 	 * 
 	 * array(
@@ -306,7 +337,7 @@ class linkedin {
         curl_close($handle);
         
         // no exceptions thrown, return the data
-        return $return_data;
+        return self::scrub_response($return_data);
       } else {
         // cURL failed to start
         throw new LinkedInException('cURL did not initialize properly.');
