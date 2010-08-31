@@ -70,7 +70,7 @@
  *                            http://developer.linkedin.com/message/4626#4626
  *                            http://developer.linkedin.com/message/3193#3193 
  *    
- * @version   1.1.0 - 19/05/2010
+ * @version   1.2.0 - 30/08/2010
  * @author    Paul Mennega <pmmenneg@gmail.com>
  * @copyright Copyright 2010, Paul Mennega 
  * @license   http://www.opensource.org/licenses/mit-license.php The MIT License 
