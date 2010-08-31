@@ -109,7 +109,7 @@ class linkedin {
 	const _URL_REQUEST    = 'https://www.linkedin.com/uas/oauth/requestToken';
 	const _URL_REVOKE     = 'https://www.linkedin.com/uas/oauth/invalidateToken';
 
-  public $consumer, $method;
+  public $auth, $consumer, $method;
   
   protected $callback;
   protected $token_access, $token_request;
