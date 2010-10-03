@@ -82,7 +82,7 @@
  * Rename and move as needed, be sure to change the require_once() call to the
  * correct name and path.
  */    
-require_once('oauth.class.php');
+require_once('OAuth.php');
 
 /**
  * 'LinkedInException' class declaration.
