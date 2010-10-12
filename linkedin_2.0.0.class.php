@@ -42,11 +42,8 @@
  * the scripts you wish to use them in.  Make sure to change the file 
  * permissions such that your web server can read the files.
  * 
- * Next, change three lines below.  First, make sure the path to the oauth 
- * library is correct (you can change this as needed, dpending on your file
- * organization scheme, etc).  Second, change the two API related class 
- * constants, _API_KEY and _API_SECRET to match your LinkedIn application 
- * key-pair.
+ * Next, make sure the path to the oauth library is correct (you can change this 
+ * as needed, depending on your file organization scheme, etc).
  * 
  * Finally, test the class by attempting to connect to LinkedIn.  In future 
  * versions of this class, I will include testing scripts, etc.                 
@@ -54,25 +51,26 @@
  * RESOURCES:
  *    
  * LinkedIn API Documentation from developer.linkedin.com
- * Profile API:					      http://developer.linkedin.com/docs/DOC-1002
- * Field Selectors:				    http://developer.linkedin.com/docs/DOC-1014
- * Profile Fields:				    http://developer.linkedin.com/docs/DOC-1061
- * Post Network Update:		    http://developer.linkedin.com/docs/DOC-1009
- * Messaging:					        http://developer.linkedin.com/docs/DOC-1044
- * Comments Network Updates:	http://developer.linkedin.com/docs/DOC-1043
- * Get Network Updates:			  http://developer.linkedin.com/docs/DOC-1006
- * Invitation API:				    http://developer.linkedin.com/docs/DOC-1012
- * Connections API:				    http://developer.linkedin.com/docs/DOC-1004
- * Status Update API:			    http://developer.linkedin.com/docs/DOC-1007
- * Search API:					      http://developer.linkedin.com/docs/DOC-1005
- * Industry Codes:				    http://developer.linkedin.com/docs/DOC-1011
- * Throttle Limits:           http://developer.linkedin.com/docs/DOC-1112
- *                            http://developer.linkedin.com/message/4626#4626
- *                            http://developer.linkedin.com/message/3193#3193 
+ * Comments Network Updates:	    http://developer.linkedin.com/docs/DOC-1043 
+ * Connections API:				        http://developer.linkedin.com/docs/DOC-1004 
+ * Field Selectors:				        http://developer.linkedin.com/docs/DOC-1014 
+ * Get Network Updates:			      http://developer.linkedin.com/docs/DOC-1006 
+ * Industry Codes:				        http://developer.linkedin.com/docs/DOC-1011 
+ * Invitation API:				        http://developer.linkedin.com/docs/DOC-1012 
+ * Messaging API:					        http://developer.linkedin.com/docs/DOC-1044 
+ * People Search API:					    http://developer.linkedin.com/docs/DOC-1191 
+ * Profile API:					          http://developer.linkedin.com/docs/DOC-1002
+ * Profile Fields:				        http://developer.linkedin.com/docs/DOC-1061
+ * Post Network Update:		        http://developer.linkedin.com/docs/DOC-1009
+ * Share API:                     http://developer.linkedin.com/docs/DOC-1212 
+ *   replaces Status Update API:	http://developer.linkedin.com/docs/DOC-1007
+ * Throttle Limits:               http://developer.linkedin.com/docs/DOC-1112
+ *                                http://developer.linkedin.com/message/4626#4626
+ *                                http://developer.linkedin.com/message/3193#3193 
  *    
- * @version   1.2.0 - 30/08/2010
- * @author    Paul Mennega <pmmenneg@gmail.com>
- * @copyright Copyright 2010, Paul Mennega 
+ * @version   2.0.0 - 13/10/2010
+ * @author    Paul Mennega <paul@fiftymission.net>
+ * @copyright Copyright 2010, fiftyMission Inc. 
  * @license   http://www.opensource.org/licenses/mit-license.php The MIT License 
  */
  
@@ -103,18 +101,29 @@ class LinkedInException extends Exception {}
  * @package classpackage
  */
 class linkedin {
-  const _API_KEY        = '<your LinkedIn API key here>';
-  const _API_SECRET     = '<your LinkedIn API secret here>';
+  // helper constants used to standardize LinkedIn <-> API communication.  See demo page for usage.
+  const _GET_RESPONSE     = 'lResponse';
+  const _GET_TYPE         = 'lType';
   
-  const _NETWORK_HTML   = '<a>';
+  // Invitation API constants.
+  const _INV_SUBJECT      = 'Invitation to connect';
+  const _INV_BODY_LENGTH  = 200;
   
-  const _STATUS_LENGTH  = 140;
+  // Network API constants.
+  const _NETWORK_HTML     = '<a>';
   
-	const _URL_ACCESS     = 'https://www.linkedin.com/uas/oauth/accessToken';
-	const _URL_API        = 'https://api.linkedin.com';
-	const _URL_AUTH       = 'https://www.linkedin.com/uas/oauth/authorize?oauth_token=';
-	const _URL_REQUEST    = 'https://www.linkedin.com/uas/oauth/requestToken';
-	const _URL_REVOKE     = 'https://www.linkedin.com/uas/oauth/invalidateToken';
+  // Status API constants.
+  const _STATUS_LENGTH    = 140;
+  
+  // LinkedIn API end-points
+	const _URL_ACCESS       = 'https://www.linkedin.com/uas/oauth/accessToken';
+	const _URL_API          = 'https://api.linkedin.com';
+	const _URL_AUTH         = 'https://www.linkedin.com/uas/oauth/authorize?oauth_token=';
+	const _URL_REQUEST      = 'https://www.linkedin.com/uas/oauth/requestToken';
+	const _URL_REVOKE       = 'https://www.linkedin.com/uas/oauth/invalidateToken';
+	
+	// Library version
+	const _VERSION          = '2.0.0';
 
   public $auth, $consumer, $method;
   
@@ -130,7 +139,7 @@ class linkedin {
 	 * @param    str   $callback_url   [OPTIONAL] The URL to return the user to.
 	 * @return   obj                   A new dealsheet linkedin object.	 
 	 */
-	public function __construct($api_key = self::_API_KEY, $api_secret = self::_API_SECRET, $callback_url = NULL) {
+	public function __construct($api_key, $api_secret, $callback_url = NULL) {
 		$this->consumer = new OAuthConsumer($api_key, $api_secret, $callback_url);		
 		$this->method   = new OAuthSignatureMethod_HMAC_SHA1();
 		$this->set_callback($callback_url);
@@ -217,7 +226,7 @@ class linkedin {
 	}
 	
 	/**
-	 * General profile retrieval function.
+	 * General connection retrieval function.
 	 * 
 	 * Takes a string of parameters as input and requests connection-related data 
 	 * from the Linkedin Connections API.  See the official documentation for 
@@ -225,11 +234,11 @@ class linkedin {
 	 * 
 	 * http://developer.linkedin.com/docs/DOC-1014      	 
 	 * 
-	 * @param    str     $options      Data retrieval options.	 
-	 * @return   xml                   XML formatted data.
+	 * @param    str     $options      [OPTIONAL] Data retrieval options.	 
+	 * @return   xml                   XML formatted response.
 	 */
-	public function connections($options = '~') {
-	  $query = self::_URL_API . '/v1/people/' . $options;
+	public function connections($options = '~/connections') {
+	  $query = self::_URL_API . '/v1/people/' . htmlspecialchars($options);
 		return $this->request('GET', $query);
 	}
 	
@@ -261,7 +270,10 @@ class linkedin {
 	}
 	
 	/**
-	 * Checks the passed LinkedIn response to see if we have hit a throttling limit.	 
+	 * Checks the passed LinkedIn response to see if we have hit a throttling 
+	 * limit:
+	 * 
+	 * http://developer.linkedin.com/docs/DOC-1112
 	 * 
 	 * @param    arr     $response     The LinkedIn response.         	 
 	 * @return   bool                  TRUE/FALSE depending on content of response.                  
@@ -293,13 +305,14 @@ class linkedin {
 	 * Linkedin Profile API.  See the official documentation for $options
 	 * 'field selector' formatting:
 	 * 
-	 * http://developer.linkedin.com/docs/DOC-1014 
+	 * http://developer.linkedin.com/docs/DOC-1014
+	 * http://developer.linkedin.com/docs/DOC-1002    
 	 * 
-	 * @param    str     $options      Data retrieval options.	 
-	 * @return   xml                   XML formatted data.
+	 * @param    str     $options      [OPTIONAL] Data retrieval options.	 
+	 * @return   xml                   XML formatted response.
 	 */
 	public function profile($options = '~') {
-    $query = self::_URL_API . '/v1/people/' . $options;
+    $query = self::_URL_API . '/v1/people/' . htmlspecialchars($options);
 		return $this->request('GET', $query);
 	}
 	
@@ -372,6 +385,23 @@ class linkedin {
       // oauth exception raised
       throw new LinkedInException('OAuth exception caught: ' . $e->getMessage());
     }
+	}
+	
+	/**
+	 * General people search function.
+	 * 
+	 * Takes a string of parameters as input and requests profile data from the 
+	 * Linkedin People Search API.  See the official documentation for $options
+	 * querystring formatting:
+	 * 
+	 * http://developer.linkedin.com/docs/DOC-1191 
+	 * 
+	 * @param    str     $options      [OPTIONAL] Data retrieval options.	 
+	 * @return   xml                   XML formatted response.
+	 */
+	public function search($options = NULL) {
+    $query = self::_URL_API . '/v1/people-search' . htmlspecialchars($options);
+		return $this->request('GET', $query);
 	}
 	
 	/**
@@ -503,6 +533,21 @@ class linkedin {
 	}
 	
 	/**
+	 * General network statistics retrieval function.
+	 * 
+	 * Returns the number of connections, second-connections an authenticated
+	 * user has.  More information here:
+	 * 
+	 * http://developer.linkedin.com/docs/DOC-1006
+	 * 
+	 * @return   xml                   XML formatted response.
+	 */
+	public function statistics() {
+	  $query = self::_URL_API . '/v1/people/~/network/network-stats';
+		return $this->request('GET', $query);
+	}
+	
+	/**
 	 * Request the user's access token from the Linkedin API.
 	 * 
 	 * @param    str     $token        The token returned from the user authorization stage.
@@ -553,7 +598,7 @@ class linkedin {
         // tokens retrieved
         $this->set_token_request($response['linkedin']);
       } else {
-        // erro getting the request tokens
+        // error getting the request tokens
         $this->set_token_request(NULL);
       }
       return $response;
@@ -692,6 +737,27 @@ class linkedin {
       $return_data = $response;
     }
 		return $return_data;
+	}
+	
+	/**
+	 * General network update retrieval function.
+	 * 
+	 * Takes a string of parameters as input and requests update-related data 
+	 * from the Linkedin Network Updates API.  See the official documentation for 
+	 * $options parameter formatting:
+	 * 
+	 * http://developer.linkedin.com/docs/DOC-1006
+	 * 
+	 * For getting more comments, likes, etc, see here:
+	 * 
+	 * http://developer.linkedin.com/docs/DOC-1043         	 
+	 * 
+	 * @param    str     $options      [OPTIONAL] Data retrieval options.	 
+	 * @return   xml                   XML formatted response.
+	 */
+	public function updates($options = NULL) {
+	  $query = self::_URL_API . '/v1/people/~/network/updates' . htmlspecialchars($options);
+		return $this->request('GET', $query);
 	}
 	
 	/**
