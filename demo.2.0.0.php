@@ -426,6 +426,7 @@ switch($_REQUEST[LINKEDIN::_GET_TYPE]) {
                   ?>
                   <input type="checkbox" name="connections[]" id="connection_<?php echo $connection->id;?>" value="<?php echo $connection->id;?>" />
                   <label for="connection_<?php echo $connection->id;?>"><?php echo $connection->{'first-name'};?></label>
+                  <div><?php echo $connection->id;?></div>
                 </div>
                 <?php
               }

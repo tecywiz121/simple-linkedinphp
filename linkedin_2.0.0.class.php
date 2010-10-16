@@ -111,8 +111,8 @@ class LinkedInException extends Exception {}
  */
 class linkedin {
   // api keys
-  const _API_KEY                     = '<your key here>';
-  const _API_SECRET                  = '<your secret here>';
+  const _API_KEY                     = '<your application key here>';
+  const _API_SECRET                  = '<your application secret here>';
 
   // helper constants used to standardize LinkedIn <-> API communication.  See demo page for usage.
   const _GET_RESPONSE                = 'lResponse';
@@ -240,10 +240,22 @@ class linkedin {
     // check passed data
     switch($method) {
       case 'email':
+        if(is_array($recipient)) {
+          $recipient = array_map('trim', $recipient);
+        } else {
+          // bad format for recipient for email method
+          throw new LinkedInException('LinkedIn->invite(): invitation recipient email/name array is malformed.');
+        }
+        break;
       case 'id':
+        $recipient = trim($recipient);
+        if(!self::is_id($recipient)) {
+          // bad format for recipient for id method
+          throw new LinkedInException('LinkedIn->invite(): invitation recipient ID does not match LinkedIn format.');
+        }
         break;
       default:
-        throw new LinkedInException('LinkedIn->invite(): bad invitation method, must be one of: email, id');
+        throw new LinkedInException('LinkedIn->invite(): bad invitation method, must be one of: email, id.');
         break;
     }
     if(!empty($recipient)) {
@@ -271,7 +283,7 @@ class linkedin {
       case 'friend':
         break;
       default:
-        throw new LinkedInException('LinkedIn->invite(): bad invitation type, must be one of: friend');
+        throw new LinkedInException('LinkedIn->invite(): bad invitation type, must be one of: friend.');
         break;
     }
     
@@ -341,6 +353,33 @@ class linkedin {
       $return_data = $response;
     }
 		return $return_data;
+	}
+	
+	/**
+	 * Checks the passed string $id to see if it has a valid LinkedIn ID format, 
+	 * which is, as of October 15th, 2010:
+	 * 
+	 * 10 alpha-numeric mixed-case characters, plus underscores and dashes.          	 
+	 * 
+	 * @param    str     $id           A possible LinkedIn ID.         	 
+	 * @return   bool                  TRUE/FALSE depending on valid ID format determination.                  
+	 */
+	public static function is_id($id) {
+	  if(is_string($id)) {
+	    // we at least have a string, check it
+  	  $pattern = '/^[a-z0-9_\-]{10}$/i';
+  	  if($match = preg_match($pattern, $id)) {
+  	    // we have a match
+  	    $return_data = TRUE;
+  	  } else {
+  	    // no match
+  	    $return_data = FALSE;
+  	  }
+	  } else {
+	    // bad data passed
+	    throw new LinkedInException('LinkedIn->is_id(): passed LinkedIn ID must be a string type.');
+	  }
+	  return $return_data;
 	}
 	
 	/**
@@ -709,7 +748,7 @@ class linkedin {
       $content_xml  = NULL;
       if(array_key_exists('comment', $content)) {
         // comment located
-        $comment = substr(trim(strip_tags($content['comment'])), 0, self::_SHARE_COMMENT_LENGTH);
+        $comment = substr(trim(strip_tags(stripslashes($content['comment']))), 0, self::_SHARE_COMMENT_LENGTH);
         $content_xml .= '<comment>' . $comment . '</comment>';
         $share_flag = TRUE;
       }
@@ -717,7 +756,7 @@ class linkedin {
         case 'new':
           if(array_key_exists('title', $content) && array_key_exists('submitted-url', $content)) {
             // we have shared content, format it as needed per rules above
-            $content_title = substr(trim(strip_tags($content['title'])), 0, self::_SHARE_CONTENT_TITLE_LENGTH);
+            $content_title = substr(trim(strip_tags(stripslashes($content['title']))), 0, self::_SHARE_CONTENT_TITLE_LENGTH);
             $content_xml .= '<content>
                                <title>' . $content_title . '</title>
                                <submitted-url>' . trim($content['submitted-url']) . '</submitted-url>';
@@ -725,7 +764,7 @@ class linkedin {
               $content_xml .= '<submitted-image-url>' . trim($content['submitted-image-url']) . '</submitted-image-url>';
             }
             if(array_key_exists('description', $content)) {
-              $content_desc = substr(trim(strip_tags($content['description'])), 0, self::_SHARE_CONTENT_DESC_LENGTH);
+              $content_desc = substr(trim(strip_tags(stripslashes($content['description']))), 0, self::_SHARE_CONTENT_DESC_LENGTH);
               $content_xml .= '<description>' . $content_desc . '</description>';
             }
             $content_xml .= '</content>';
@@ -746,7 +785,7 @@ class linkedin {
           break;
         default:
           // bad action passed
-          throw new LinkedInException('LinkedIn->share(): share action is an invalid value, must be one of: share, reshare');
+          throw new LinkedInException('LinkedIn->share(): share action is an invalid value, must be one of: share, reshare.');
           break;
       }
       
@@ -773,11 +812,11 @@ class linkedin {
         $response = $this->request('POST', $share_url, $data);
   		} else {
   		  // data contraints/rules not met, raise an exception
-		    throw new LinkedInException('LinkedIn->share(): sharing data constraints not met; check that you have supplied valid content and combinations of content to share');
+		    throw new LinkedInException('LinkedIn->share(): sharing data constraints not met; check that you have supplied valid content and combinations of content to share.');
   		}
     } else {
       // data missing, raise an exception
-		  throw new LinkedInException('LinkedIn->share(): sharing action or shared content is missing');
+		  throw new LinkedInException('LinkedIn->share(): sharing action or shared content is missing.');
     }
     
     /**
