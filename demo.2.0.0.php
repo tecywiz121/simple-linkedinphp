@@ -420,7 +420,7 @@ switch($_REQUEST[LINKEDIN::_GET_TYPE]) {
                     <?php
                   } else {
                     ?>
-                    <img src="/img/anonymous.png" alt="" title="" width="80" height="80" style="display: block; margin: 0 auto; padding: 0.25em;" />
+                    <img src="./anonymous.png" alt="" title="" width="80" height="80" style="display: block; margin: 0 auto; padding: 0.25em;" />
                     <?php
                   }
                   ?>
