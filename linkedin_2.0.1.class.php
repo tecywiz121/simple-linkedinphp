@@ -51,9 +51,10 @@
  * as needed, depending on your file organization scheme, etc).
  * 
  * Now, change the _API_KEY and _API_SECRET class constants below to your 
- * LinkedIn API live application keys.  If you have a development enviroment
- * that will also make use of the library, you can plug in your development 
- * application keys as well for later use in _API_DEV_KEY _API_DEV_SECRET.
+ * LinkedIn API live application keys.  If you are testing your applications
+ * functionality and want the library to use your 'development' application keys, 
+ * you can plug in your development application keys into _API_DEV_KEY and
+ * _API_DEV_SECRET, and then set _API_DEV_MODE = TRUE.
  * 
  * Finally, test the class by attempting to connect to LinkedIn using the 
  * associated demo.php page, also located at the Google Code location
@@ -115,6 +116,7 @@ class linkedin {
   // api keys (live and development, if applicable)
   const _API_KEY                     = '<your live application key here>';
   const _API_SECRET                  = '<your live application secret here>';
+  const _API_DEV_MODE                = FALSE
   const _API_DEV_KEY                 = '<your development application key here>';
   const _API_DEV_SECRET              = '<your development application secret here>';
   
@@ -160,7 +162,13 @@ class linkedin {
 	 * @return   obj                   A new dealsheet linkedin object.	 
 	 */
 	public function __construct($callback_url = NULL) {
-		$this->consumer = new OAuthConsumer(self::_API_KEY, self::_API_SECRET, $callback_url);		
+	  if(self::_API_DEV_MODE) {
+	    // 'development' mode
+		  $this->consumer = new OAuthConsumer(self::_API_DEV_KEY, self::_API_DEV_SECRET, $callback_url);
+    } else {
+      // 'live' mode
+      $this->consumer = new OAuthConsumer(self::_API_KEY, self::_API_SECRET, $callback_url);
+    }		
 		$this->method   = new OAuthSignatureMethod_HMAC_SHA1();
 		$this->set_callback($callback_url);
 	}
