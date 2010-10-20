@@ -116,7 +116,7 @@ class linkedin {
   // api keys (live and development, if applicable)
   const _API_KEY                     = '<your live application key here>';
   const _API_SECRET                  = '<your live application secret here>';
-  const _API_DEV_MODE                = FALSE
+  const _API_DEV_MODE                = FALSE;
   const _API_DEV_KEY                 = '<your development application key here>';
   const _API_DEV_SECRET              = '<your development application secret here>';
   
