@@ -77,7 +77,7 @@
  *                                   http://developer.linkedin.com/message/4626#4626
  *                                   http://developer.linkedin.com/message/3193#3193 
  *    
- * @version   2.0.0 - 15/10/2010
+ * @version   2.0.1 - 20/10/2010
  * @author    Paul Mennega <paul@fiftymission.net>
  * @copyright Copyright 2010, fiftyMission Inc. 
  * @license   http://www.opensource.org/licenses/mit-license.php The MIT License 
@@ -141,7 +141,7 @@ class linkedin {
 	const _URL_REVOKE                  = 'https://www.linkedin.com/uas/oauth/invalidateToken';
 	
 	// Library version
-	const _VERSION                     = '2.0.0';
+	const _VERSION                     = '2.0.1';
 
   public $auth, $consumer, $method;
   
@@ -581,8 +581,9 @@ class linkedin {
 	 * Static Linkedin curl specific method, returning response:
 	 * 
 	 * array(
-	 *   'linkedin'  => LinkedIn response,
-	 *   'info'      =>	Connection information 
+	 *   'info'      =>	Connection information,
+	 *   'linkedin'  => LinkedIn response,  
+	 *   'oauth'     => The OAuth request string that was sent to LinkedIn	 
 	 * )   	 
 	 * 
 	 * @param    obj     $request      The oauth request object to use.
@@ -628,7 +629,7 @@ class linkedin {
         }
         
         // gather the response
-        $return_data['oauth']     = $request;
+        $return_data['oauth']     = $request->base_string;
         $return_data['linkedin']  = curl_exec($handle);
         $return_data['info']      = curl_getinfo($handle);
         
