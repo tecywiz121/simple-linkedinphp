@@ -51,7 +51,9 @@
  * as needed, depending on your file organization scheme, etc).
  * 
  * Now, change the _API_KEY and _API_SECRET class constants below to your 
- * LinkedIn API application keys.   
+ * LinkedIn API live application keys.  If you have a development enviroment
+ * that will also make use of the library, you can plug in your development 
+ * application keys as well for later use in _API_DEV_KEY _API_DEV_SECRET.
  * 
  * Finally, test the class by attempting to connect to LinkedIn using the 
  * associated demo.php page, also located at the Google Code location
@@ -110,10 +112,12 @@ class LinkedInException extends Exception {}
  * @package classpackage
  */
 class linkedin {
-  // api keys
-  const _API_KEY                     = '<your application key here>';
-  const _API_SECRET                  = '<your application secret here>';
-
+  // api keys (live and development, if applicable)
+  const _API_KEY                     = '<your live application key here>';
+  const _API_SECRET                  = '<your live application secret here>';
+  const _API_DEV_KEY                 = '<your development application key here>';
+  const _API_DEV_SECRET              = '<your development application secret here>';
+  
   // helper constants used to standardize LinkedIn <-> API communication.  See demo page for usage.
   const _GET_RESPONSE                = 'lResponse';
   const _GET_TYPE                    = 'lType';
