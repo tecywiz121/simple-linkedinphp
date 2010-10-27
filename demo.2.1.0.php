@@ -646,9 +646,8 @@ try {
               <p>All 1st degree connections living in the San Francisco Bay Area (returned in JSONP format):</p>
               
               <?php
-              $OBJ_linkedin->set_response_format('jsonp');
+              $OBJ_linkedin->set_response_format(LINKEDIN::_RESPONSE_JSONP);
               $query    = '?facet=location,us:84&facet=network,F';
-              //$query    = ':(people:(id,first-name,last-name,picture-url))?facet=location,us:84&facet=network,O';
               $response = $OBJ_linkedin->search($query);
               if($response['success'] === TRUE) {
                 //$response['linkedin'] = new SimpleXMLElement($response['linkedin']);

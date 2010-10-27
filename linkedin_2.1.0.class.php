@@ -129,8 +129,7 @@ class linkedin {
   
   // the default response format from LinkedIn
   const _DEFAULT_RESPONSE_FORMAT     = 'xml';
-  
-  
+    
   // helper constants used to standardize LinkedIn <-> API communication.  See demo page for usage.
   const _GET_RESPONSE                = 'lResponse';
   const _GET_TYPE                    = 'lType';
@@ -142,6 +141,11 @@ class linkedin {
   // Network API constants.
   const _NETWORK_LENGTH              = 1000;
   const _NETWORK_HTML                = '<a>';
+  
+  // response format type constants
+  const _RESPONSE_JSON               = 'JSON';
+  const _RESPONSE_JSONP              = 'JSONP';
+  const _RESPONSE_XML                = 'XML';
   
   // Share API constants
   const _SHARE_COMMENT_LENGTH        = 700;
@@ -161,7 +165,7 @@ class linkedin {
   public $consumer, $method;
   
   // the format of the data to return
-  public $response_format = self::_DEFAULT_RESPONSE_FORMAT;
+  public $response_format            = self::_DEFAULT_RESPONSE_FORMAT;
   
   protected $callback;
   protected $token_access, $token_request;
@@ -879,10 +883,10 @@ class linkedin {
       $header = array($request->to_header());
       if(is_null($data)) {
         switch($this->get_response_format()) {
-          case 'json':
+          case self::_RESPONSE_JSON:
             $header[] = 'x-li-format: json';
             break;
-          case 'jsonp':
+          case self::_RESPONSE_JSONP:
             $header[] = 'x-li-format: jsonp';
             break;
         }
@@ -925,9 +929,9 @@ class linkedin {
 	/**
 	 * Set the response_format property.
 	 * 
-	 * @param   str    $format         The response format to specify to LinkedIn.       	 
+	 * @param   str    $format         [OPTIONAL] The response format to specify to LinkedIn.       	 
 	 */
-	public function set_response_format($format) {
+	public function set_response_format($format = self::_DEFAULT_RESPONSE_FORMAT) {
 	  $this->response_format = $format;
 	}
 	
