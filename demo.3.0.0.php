@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is used in conjunction with the 'linkedin' class, demonstrating 
+ * This file is used in conjunction with the 'LinkedIn' class, demonstrating 
  * the basic functionality and usage of the library.
  * 
  * COPYRIGHT:
@@ -38,13 +38,13 @@
  * QUICK START:
  * 
  * There are two files needed to enable LinkedIn API functionality from PHP; the
- * stand-alone OAuth library, and the LinkedIn class.  The latest version of 
- * the OAuth library can be found on Google Code:
+ * stand-alone OAuth library, and the Simple-LinkedIn library.  The latest 
+ * version of the stand-alone OAuth library can be found on Google Code:
  * 
  * http://code.google.com/p/oauth/
  * 
- * The latest versions of the library and this demonstation script can be found
- * here:
+ * The latest versions of the Simple-LinkedIn library and this demonstation 
+ * script can be found here:
  * 
  * http://code.google.com/p/simple-linkedinphp/
  *   
@@ -54,7 +54,8 @@
  * 
  * Next, make sure the path to the LinkedIn class below is correct.
  * 
- * Finally, read and follow the 'Quick Start' guidelines in the LinkedIn class.   
+ * Finally, read and follow the 'Quick Start' guidelines located in the comments
+ * of the Simple-LinkedIn library file.   
  *
  * @version   3.0.0 - 15/12/2010
  * @author    Paul Mennega <paul@fiftymission.net>
@@ -69,7 +70,12 @@ try {
   // start the session
   session_start();
   
-  // script constants
+  // display constants
+  $API_CONFIG = array(
+    'appKey'       => '<your application key here>',
+	  'appSecret'    => '<your application secret here>',
+	  'callbackUrl'  => NULL 
+  );
   define('CONNECTION_COUNT', 20);
   define('UPDATE_COUNT', 10);
 
@@ -77,9 +83,8 @@ try {
   $_REQUEST[LINKEDIN::_GET_TYPE] = (isset($_REQUEST[LINKEDIN::_GET_TYPE])) ? $_REQUEST[LINKEDIN::_GET_TYPE] : '';
   switch($_REQUEST[LINKEDIN::_GET_TYPE]) {
     case 'comment':
-      $OBJ_linkedin = new LinkedIn();
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
       $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
-      print_r($_POST);
       if(!empty($_POST['nkey'])) {
         $response = $OBJ_linkedin->comment($_POST['nkey'], $_POST['scomment']);
         if($response['success'] === TRUE) {
@@ -87,18 +92,16 @@ try {
           header('Location: ' . $_SERVER['PHP_SELF']);
         } else {
           // problem with comment
-          echo "Error commenting on update:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+          echo "Error commenting on update:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
         }
       } else {
         echo "You must supply a network update key to comment on an update.";
       }
       break;
     case 'initiate':
-      // user initiated LinkedIn connection
-      
-      // create the linkedin object
-      $callback_url = 'http://' . $_SERVER['SERVER_NAME'] . $_SERVER['PHP_SELF'] . '?' . LINKEDIN::_GET_TYPE . '=initiate&' . LINKEDIN::_GET_RESPONSE . '=1';
-      $OBJ_linkedin = new LinkedIn($callback_url);
+      // user initiated LinkedIn connection, create the LinkedIn object
+      $API_CONFIG['callbackUrl'] = 'http://' . $_SERVER['SERVER_NAME'] . $_SERVER['PHP_SELF'] . '?' . LINKEDIN::_GET_TYPE . '=initiate&' . LINKEDIN::_GET_RESPONSE . '=1';
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
       
       // check for response from LinkedIn
       $_GET[LINKEDIN::_GET_RESPONSE] = (isset($_GET[LINKEDIN::_GET_RESPONSE])) ? $_GET[LINKEDIN::_GET_RESPONSE] : '';
@@ -115,7 +118,7 @@ try {
           header('Location: ' . LINKEDIN::_URL_AUTH . $_SESSION['oauth']['linkedin']['request']['oauth_token']);
         } else {
           // bad token request
-          echo "Bad request token call:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+          echo "Request token retrieval failed:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
         }
       } else {
         // LinkedIn has sent a response, user has granted permission, take the temp access token, the user's secret and the verifier to request the user's real secret key
@@ -127,45 +130,17 @@ try {
           // set the user as authorized for future quick reference
           $_SESSION['oauth']['linkedin']['authorized'] = TRUE;
             
-          // now we have the session 'access' tokens, request the linkedin id for the user and store that with keys in SESSION
-          $response = $OBJ_linkedin->profile('~:(id)');
-          if($response['info']['http_code'] == 200) {
-            // data request using user's access keys successful, store data and send user back to demo page
-  
-            /** 
-             * Use SimpleXMLElement to convert the XML response from the previous 
-             * LinkedIn->profile() call into an object and store the LinkedIn
-             * user ID for future reference.
-             * 
-             * http://php.net/manual/en/book.simplexml.php
-             * 
-             * NOTE: we need to cast the LinkedIn ID explicitly to a string as 
-             * there are known issues with SimpleXMLElement treating the XML 
-             * object as a resource, which breaks the SESSION's ability to store 
-             * the data properly.                                            
-             */
-            if(class_exists('SimpleXMLElement')) {          
-              $response['linkedin'] = new SimpleXMLElement($response['linkedin']);
-              $_SESSION['oauth']['linkedin']['id'] = (string)$response['linkedin']->id;
-            } else {
-              echo "Missing SimpleXMLElement class...  please install this extension or use a different method to process the XML response.";            
-            }
-  
-            // redirect the user back to the demo page
-            header('Location: ' . $_SERVER['PHP_SELF']);
-          } else {
-            // bad data returned from LinkedIn get call
-            echo "Bad get data returned:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
-          }
+          // redirect the user back to the demo page
+          header('Location: ' . $_SERVER['PHP_SELF']);
         } else {
           // bad token access
-          echo "Bad access token call:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+          echo "Access token retrieval failed:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
         }
       }
       break;
     case 'invite':
       // invitation messaging
-      $OBJ_linkedin = new LinkedIn();
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
       $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
       if(!empty($_POST['invite_to_id'])) {
         // send invite via LinkedIn ID
@@ -175,7 +150,7 @@ try {
           header('Location: ' . $_SERVER['PHP_SELF']);
         } else {
           // an error occured
-          echo "Error sending invite:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+          echo "Error sending invite:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
         }
       } elseif(!empty($_POST['invite_to_email'])) {
         // send invite via email
@@ -186,7 +161,7 @@ try {
           header('Location: ' . $_SERVER['PHP_SELF']);
         } else {
           // an error occured
-          echo "Error sending invite:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+          echo "Error sending invite:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
         }
       } else {
         // no email or id supplied
@@ -194,7 +169,7 @@ try {
       }
       break;
     case 'like':
-      $OBJ_linkedin = new LinkedIn();
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
       $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
       if(!empty($_GET['nKey'])) {
         $response = $OBJ_linkedin->like($_GET['nKey']);
@@ -203,7 +178,7 @@ try {
           header('Location: ' . $_SERVER['PHP_SELF']);
         } else {
           // problem with 'like'
-          echo "Error 'liking' update:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+          echo "Error 'liking' update:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
         }
       } else {
         echo "You must supply a network update key to 'like' an update.";
@@ -212,7 +187,7 @@ try {
     case 'message':
       // connection messaging
       if(!empty($_POST['connections'])) {
-        $OBJ_linkedin = new LinkedIn();
+        $OBJ_linkedin = new LinkedIn($API_CONFIG);
         $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
         
         if(!empty($_POST['message_copy'])) {
@@ -226,28 +201,15 @@ try {
           header('Location: ' . $_SERVER['PHP_SELF']);
         } else {
           // an error occured
-          echo "Error sending message:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+          echo "Error sending message:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
         }
       } else {
         echo "You must select at least one recipient.";
       }
       break;
-    case 'nupdate':
-      // process a network update action
-      $OBJ_linkedin = new LinkedIn();
-      $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
-      $response = $OBJ_linkedin->updateNetwork($_POST['nupdate']);
-      if($response['success'] === TRUE) {
-        // status has been updated
-        header('Location: ' . $_SERVER['PHP_SELF']);
-      } else {
-        // an error occured
-        echo "Error posting network update:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
-      }
-      break;
     case 'reshare':
       // process a status update action
-      $OBJ_linkedin = new LinkedIn();
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
       $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
       
       // prepare content for sharing
@@ -271,11 +233,11 @@ try {
         header('Location: ' . $_SERVER['PHP_SELF']);
       } else {
         // an error occured
-        echo "Error re-sharing content:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+        echo "Error re-sharing content:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
       }
       break;
     case 'revoke':
-      $OBJ_linkedin = new LinkedIn();
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
       $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
       $response = $OBJ_linkedin->revoke();
       if($response['success'] === TRUE) {
@@ -291,12 +253,12 @@ try {
         }
       } else {
         // revocation failed
-        echo "Error revoking user's token:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+        echo "Error revoking user's token:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
       }
       break;
     case 'share':
       // process a status update action
-      $OBJ_linkedin = new LinkedIn();
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
       $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
       
       // prepare content for sharing
@@ -329,11 +291,11 @@ try {
         header('Location: ' . $_SERVER['PHP_SELF']);
       } else {
         // an error occured
-        echo "Error sharing content:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+        echo "Error sharing content:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
       }
       break;
     case 'unlike':
-      $OBJ_linkedin = new LinkedIn();
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
       $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
       if(!empty($_GET['nKey'])) {
         $response = $OBJ_linkedin->unlike($_GET['nKey']);
@@ -342,10 +304,23 @@ try {
           header('Location: ' . $_SERVER['PHP_SELF']);
         } else {
           // problem with 'unlike'
-          echo "Error 'unliking' update:\n\nRESPONSE:\n\n" . print_r($response, TRUE) . "\n\nLINKEDIN OBJ:\n\n" . print_r($OBJ_linkedin, TRUE);
+          echo "Error 'unliking' update:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
         }
       } else {
         echo "You must supply a network update key to 'unlike' an update.";
+      }
+      break;
+    case 'updateNetwork':
+      // process a network update action
+      $OBJ_linkedin = new LinkedIn($API_CONFIG);
+      $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
+      $response = $OBJ_linkedin->updateNetwork($_POST['updateNetwork']);
+      if($response['success'] === TRUE) {
+        // status has been updated
+        header('Location: ' . $_SERVER['PHP_SELF']);
+      } else {
+        // an error occured
+        echo "Error posting network update:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response, TRUE) . "</pre><br /><br />LINKEDIN OBJ:<br /><br /><pre>" . print_r($OBJ_linkedin, TRUE) . "</pre>";
       }
       break;
     default:
@@ -353,8 +328,7 @@ try {
       
       // check PHP version
       if(version_compare(PHP_VERSION, '5.0.0', '<')) {
-        echo "You must be running version 5.x or greater of PHP to use this library.";
-        exit();
+        throw new Exception('You must be running version 5.x or greater of PHP to use this library.'); 
       } 
       
       // check for cURL
@@ -362,8 +336,7 @@ try {
         $curl_version = curl_version();
         $curl_version = $curl_version['version'];
       } else {
-        echo "You must load the cURL extension to use this library.";
-        exit();
+        throw new Exception('You must load the cURL extension to use this library.'); 
       }
       ?>
       <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -379,6 +352,9 @@ try {
           <meta name="viewport" content="width=device-width" />
           <meta http-equiv="Content-Language" content="en" />
           <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+          <style>
+            body {font-family: Courier, monospace;}
+          </style>
         </head>
         <body>
           <h1><a href="<?php echo $_SERVER['PHP_SELF'];?>">Simple-LinkedIn Demo Page</a></h1>
@@ -387,11 +363,19 @@ try {
           
           <p>Released under the MIT License - http://www.opensource.org/licenses/mit-license.php</p>
           
-          <p>Full source code for both the Simple-LinkedIn class and this demo script can be found at: <a href="http://code.google.com/p/simple-linkedinphp/">http://code.google.com/p/simple-linkedinphp/</a></p>
+          <p>Full source code for both the Simple-LinkedIn class and this demo script can be found at:</p>
           
+          <ul>
+            <li><a href="http://code.google.com/p/simple-linkedinphp/">http://code.google.com/p/simple-linkedinphp/</a></li>
+          </ul>          
+
           <hr />
           
-          <p style="font-weight: bold;">Using; Simple-LinkedIn v<?php echo LINKEDIN::_VERSION;?>, cURL v<?php echo $curl_version;?>, PHP v<?php echo phpversion();?></p>
+          <p style="font-weight: bold;">Demo using: Simple-LinkedIn v<?php echo LINKEDIN::_VERSION;?>, cURL v<?php echo $curl_version;?>, PHP v<?php echo phpversion();?></p>
+          
+          <ul>
+            <li>Please note: The Simple-LinkedIn class requires PHP 5+</li>
+          </ul>
           
           <hr />
           
@@ -401,6 +385,7 @@ try {
             ?>
             <ul>
               <li><a href="#manage">Manage LinkedIn Authorization</a></li>
+              <li><a href="#application">Application Information</a></li>
               <li><a href="#profile">Your Profile</a></li>
               <li><a href="#network">Your Network</a>
                 <ul>
@@ -418,7 +403,7 @@ try {
               <li><a href="#content">Creating / Sharing Content</a>
                 <ul>
                   <li><a href="#content_update">Post Network Update</a></li>
-                  <li><a href="#content_share">Share Content</a></li>
+                  <li><a href="#content_share">Post Share</a></li>
                 </ul>
               </li>
             </ul>
@@ -438,276 +423,288 @@ try {
           <?php
           if($_SESSION['oauth']['linkedin']['authorized'] === TRUE) {
             // user is already connected
-            $OBJ_linkedin = new LinkedIn();
-            if($OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access'])) {
+            $OBJ_linkedin = new LinkedIn($API_CONFIG);
+            $OBJ_linkedin->setTokenAccess($_SESSION['oauth']['linkedin']['access']);
+            ?>
+            <form id="linkedin_revoke_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="get">
+              <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="revoke" />
+              <input type="submit" value="Revoke Authorization" />
+            </form>
+            
+            <hr />
+          
+            <h2 id="application">Application Information:</h2>
+            
+            <ul>
+              <li>Application Key: 
+                <ul>
+                  <li><?php echo $OBJ_linkedin->getApplicationKey();?></li>
+                </ul>
+              </li>
+              <li>Application Secret:
+                <ul>
+                  <li><?php echo $OBJ_linkedin->getApplicationSecret();?></li>
+                </ul>
+              </li>
+            </ul>
+            
+            <hr />
+            
+            <h2 id="profile">Your Profile:</h2>
+            
+            <?php
+            $response = $OBJ_linkedin->profile('~:(id,first-name,last-name,picture-url)');
+            if($response['success'] === TRUE) {
+              $response['linkedin'] = new SimpleXMLElement($response['linkedin']);
+              echo "<pre>" . print_r($response['linkedin'], TRUE) . "</pre>";
+            } else {
+              // profile retrieval failed
+              echo "Error retrieving profile information:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response) . "</pre>";
+            } 
+            ?>
+            
+            <hr />
+            
+            <h2 id="network">Your Network:</h2>
+            
+            <h3 id="network_stats">Stats:</h3>
+            
+            <?php
+            $response = $OBJ_linkedin->statistics();
+            if($response['success'] === TRUE) {
+              $response['linkedin'] = new SimpleXMLElement($response['linkedin']);
+              echo "<pre>" . print_r($response['linkedin'], TRUE) . "</pre>"; 
+            } else {
+              // statistics retrieval failed
+              echo "Error retrieving network statistics:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response) . "</pre>";
+            } 
+            ?>
+            
+            <hr />
+            
+            <?php
+            $response = $OBJ_linkedin->connections('~/connections:(id,first-name,last-name,picture-url)?start=0&count=' . CONNECTION_COUNT);
+            if($response['success'] === TRUE) {
+              $connections = new SimpleXMLElement($response['linkedin']);
               ?>
-              <form id="linkedin_revoke_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="get">
-                <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="revoke" />
-                <input type="submit" value="Revoke Authorization" />
-              </form>
+              <h3 id="network_connections">Your Connections: (first <?php echo CONNECTION_COUNT;?> of <?php echo $connections['total'];?> shown)</h3>
               
-              <hr />
+              <?php print_r($connections->attributes());?>
               
-              <h2 id="profile">Your Profile:</h2>
-              
-              <?php
-              $response = $OBJ_linkedin->profile('~:(id,first-name,last-name,picture-url)');
-              if($response['success'] === TRUE) {
-                $response['linkedin'] = new SimpleXMLElement($response['linkedin']);
-                echo "<pre>" . print_r($response['linkedin'], TRUE) . "</pre>";
-              } else {
-                // profile retrieval failed
-                echo "Error retrieving profile information:\n\nRESPONSE:\n\n<pre>" . print_r($response) . "</pre>";
-              } 
-              ?>
-              
-              <hr />
-              
-              <h2 id="network">Your Network:</h2>
-              
-              <h3 id="network_stats">Stats:</h3>
-              
-              <?php
-              $response = $OBJ_linkedin->statistics();
-              if($response['success'] === TRUE) {
-                $response['linkedin'] = new SimpleXMLElement($response['linkedin']);
-                echo "<pre>" . print_r($response['linkedin'], TRUE) . "</pre>"; 
-              } else {
-                // statistics retrieval failed
-                echo "Error retrieving network statistics:\n\nRESPONSE:\n\n<pre>" . print_r($response) . "</pre>";
-              } 
-              ?>
-              
-              <hr />
-              
-              <?php
-              $response = $OBJ_linkedin->connections('~/connections:(id,first-name,last-name,picture-url)?start=0&count=' . CONNECTION_COUNT);
-              if($response['success'] === TRUE) {
-                $connections = new SimpleXMLElement($response['linkedin']);
-                ?>
-                <h3 id="network_connections">Your Connections: (first <?php echo CONNECTION_COUNT;?> of <?php echo $connections['total'];?> shown)</h3>
-                
-                <?php print_r($connections->attributes());?>
-                
-                <form id="linkedin_cmessage_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
-                  <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="message" />
-                  <?php
-                  foreach($connections->person as $connection) {
-                    ?>
-                    <div style="float: left; width: 150px; border: 1px solid #888; margin: 0.5em; text-align: center;">
-                      <?php
-                      if($connection->{'picture-url'}) {
-                        ?>
-                        <img src="<?php echo $connection->{'picture-url'};?>" alt="" title="" width="80" height="80" style="display: block; margin: 0 auto; padding: 0.25em;" />
-                        <?php
-                      } else {
-                        ?>
-                        <img src="./anonymous.png" alt="" title="" width="80" height="80" style="display: block; margin: 0 auto; padding: 0.25em;" />
-                        <?php
-                      }
-                      ?>
-                      <input type="checkbox" name="connections[]" id="connection_<?php echo $connection->id;?>" value="<?php echo $connection->id;?>" />
-                      <label for="connection_<?php echo $connection->id;?>"><?php echo $connection->{'first-name'};?></label>
-                      <div><?php echo $connection->id;?></div>
-                    </div>
+              <form id="linkedin_cmessage_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
+                <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="message" />
+                <?php
+                foreach($connections->person as $connection) {
+                  ?>
+                  <div style="float: left; width: 150px; border: 1px solid #888; margin: 0.5em; text-align: center;">
                     <?php
-                  }
-                } else {
-                  // connections retrieval failed
-                  echo "Error retrieving connections:\n\nRESPONSE:\n\n<pre>" . print_r($response) . "</pre>";
+                    if($connection->{'picture-url'}) {
+                      ?>
+                      <img src="<?php echo $connection->{'picture-url'};?>" alt="" title="" width="80" height="80" style="display: block; margin: 0 auto; padding: 0.25em;" />
+                      <?php
+                    } else {
+                      ?>
+                      <img src="./anonymous.png" alt="" title="" width="80" height="80" style="display: block; margin: 0 auto; padding: 0.25em;" />
+                      <?php
+                    }
+                    ?>
+                    <input type="checkbox" name="connections[]" id="connection_<?php echo $connection->id;?>" value="<?php echo $connection->id;?>" />
+                    <label for="connection_<?php echo $connection->id;?>"><?php echo $connection->{'first-name'};?></label>
+                    <div><?php echo $connection->id;?></div>
+                  </div>
+                  <?php
+                }
+              } else {
+                // connections retrieval failed
+                echo "Error retrieving connections:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response) . "</pre>";
+              }
+              ?>
+              
+              <br style="clear: both;" />
+              
+              <h4 id="network_connections_message">Send a Message to the Checked Connections Above:</h4>
+              
+              <div style="font-weight: bold;">Subject:</div>            
+              <input type="text" name="message_subject" id="message_subject" length="255" maxlength="255" style="display: block; width: 400px;" />
+              
+              <div style="font-weight: bold;">Message:</div>
+              <textarea name="message_body" id="message_body" rows="4" style="display: block; width: 400px;"></textarea>
+              <input type="submit" value="Send Message" /><input type="checkbox" value="1" name="message_copy" id="message_copy" checked="checked" /><label for="message_copy">copy self on message</label>
+              
+              <p>(Note, any HTML in the subject or message bodies will be stripped by the LinkedIn->message() method)</p>
+            
+            </form>
+            
+            <hr />
+
+            <h3 id="network_invite">Invite Others to Join your LinkedIn Network:</h3>
+            <form id="linkedin_imessage_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
+              <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="invite" />
+   
+              <div style="font-weight: bold;">By Email Address and Name:</div>            
+              <input type="text" name="invite_to_email" id="invite_to_email" length="255" maxlength="255" style="display: block; width: 400px;" value="Email" />
+              <input type="text" name="invite_to_firstname" id="invite_to_firstname" length="255" maxlength="255" style="display: block; width: 400px;" value="First Name" />
+              <input type="text" name="invite_to_lastname" id="invite_to_lastname" length="255" maxlength="255" style="display: block; width: 400px;" value="Last Name" />
+              
+              <div style="font-weight: bold;">Or By LinkedIn ID:</div> 
+              <input type="text" name="invite_to_id" id="invite_to_id" length="255" maxlength="255" style="display: block; width: 400px;" />
+  
+              <div style="font-weight: bold;">Subject:</div>            
+              <input type="text" name="invite_subject" id="invite_subject" length="255" maxlength="255" style="display: block; width: 400px;" value="<?php echo LINKEDIN::_INV_SUBJECT;?>" />
+              
+              <div style="font-weight: bold;">Message:</div>
+              <textarea name="invite_body" id="invite_body" rows="4" style="display: block; width: 400px;"></textarea>
+              <input type="submit" value="Send Invitation" />
+              
+              <p>(Note, any HTML in the subject or message bodies will be stripped by the LinkedIn->invite() method)</p>
+  
+            </form>
+            
+            <hr />
+            
+            <h3 id="network_updates">Recent Connection Updates: (last <?php echo UPDATE_COUNT;?>, shared content only)</h3>
+            
+            <?php
+            $query    = '?type=SHAR&count=' . UPDATE_COUNT;
+            $response = $OBJ_linkedin->updates($query);
+            if($response['success'] === TRUE) {
+              $updates = new SimpleXMLElement($response['linkedin']);
+              foreach($updates->update as $update) {
+                $person = $update->{'update-content'}->person;
+                $share  = $update->{'update-content'}->person->{'current-share'};
+                ?>
+                <div style=""><span style="font-weight: bold;"><a href="<?php echo $person->{'site-standard-profile-request'}->url;?>"><?php echo $person->{'first-name'} . ' ' . $person->{'last-name'} . '</a></span> ' . $share->comment;?></div>
+                <?php
+                if($share->content) {
+                  ?>
+                  <div style="width: 400px; margin: 0.5em 0 0.5em 2em;"><a href="<?php echo $share->content->{'submitted-url'};?>"><?php echo $share->content->title;?></a></div>
+                  <div style="width: 400px; margin: 0.5em 0 0.5em 2em;"><?php echo $share->content->description;?></div>
+                  <div style="margin: 0.5em 0 0.5em 2em;"><span style="font-weight: bold;">Share this content with your network:</span>
+                    <form id="linkedin_reshare_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
+                      <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="reshare" />
+                      <input type="hidden" id="sid" name="sid" value="<?php echo $share->id;?>" />
+                      <textarea name="scomment" id="scomment_<?php echo $share->id;?>" rows="4" style="display: block; width: 400px;"></textarea>
+                      <input type="submit" value="Re-Share Content" /><input type="checkbox" value="1" name="sprivate" id="sprivate_<?php echo $share->id;?>" checked="checked" /><label for="rsprivate">re-share with your connections only</label>
+                    </form>
+                  </div>
+                  <?php
                 }
                 ?>
-                
-                <br style="clear: both;" />
-                
-                <h4 id="network_connections_message">Send a Message to the Checked Connections Above:</h4>
-                
-                <div style="font-weight: bold;">Subject:</div>            
-                <input type="text" name="message_subject" id="message_subject" length="255" maxlength="255" style="display: block; width: 400px;" />
-                
-                <div style="font-weight: bold;">Message:</div>
-                <textarea name="message_body" id="message_body" rows="4" style="display: block; width: 400px;"></textarea>
-                <input type="submit" value="Send Message" /><input type="checkbox" value="1" name="message_copy" id="message_copy" checked="checked" /><label for="message_copy">copy self on message</label>
-                
-                <p>(Note, any HTML in the subject or message bodies will be stripped by the LinkedIn->message() method)</p>
-              
-              </form>
-              
-              <hr />
-  
-              <h3 id="network_invite">Invite Others to Join your LinkedIn Network:</h3>
-              <form id="linkedin_imessage_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
-                <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="invite" />
-     
-                <div style="font-weight: bold;">By Email Address and Name:</div>            
-                <input type="text" name="invite_to_email" id="invite_to_email" length="255" maxlength="255" style="display: block; width: 400px;" value="Email" />
-                <input type="text" name="invite_to_firstname" id="invite_to_firstname" length="255" maxlength="255" style="display: block; width: 400px;" value="First Name" />
-                <input type="text" name="invite_to_lastname" id="invite_to_lastname" length="255" maxlength="255" style="display: block; width: 400px;" value="Last Name" />
-                
-                <div style="font-weight: bold;">Or By LinkedIn ID:</div> 
-                <input type="text" name="invite_to_id" id="invite_to_id" length="255" maxlength="255" style="display: block; width: 400px;" />
-    
-                <div style="font-weight: bold;">Subject:</div>            
-                <input type="text" name="invite_subject" id="invite_subject" length="255" maxlength="255" style="display: block; width: 400px;" value="<?php echo LINKEDIN::_INV_SUBJECT;?>" />
-                
-                <div style="font-weight: bold;">Message:</div>
-                <textarea name="invite_body" id="invite_body" rows="4" style="display: block; width: 400px;"></textarea>
-                <input type="submit" value="Send Invitation" />
-                
-                <p>(Note, any HTML in the subject or message bodies will be stripped by the LinkedIn->invite() method)</p>
-    
-              </form>
-              
-              <hr />
-              
-              <h3 id="network_updates">Recent Connection Updates: (last <?php echo UPDATE_COUNT;?>, shared content only)</h3>
-              
-              <?php
-              $query    = '?type=SHAR&count=' . UPDATE_COUNT;
-              $response = $OBJ_linkedin->updates($query);
-              if($response['success'] === TRUE) {
-                $updates = new SimpleXMLElement($response['linkedin']);
-                foreach($updates->update as $update) {
-                  //echo "<pre>" . print_r($update, TRUE) . "</pre>";
-                  $person = $update->{'update-content'}->person;
-                  $share  = $update->{'update-content'}->person->{'current-share'};
-                  ?>
-                  <div style=""><span style="font-weight: bold;"><a href="<?php echo $person->{'site-standard-profile-request'}->url;?>"><?php echo $person->{'first-name'} . ' ' . $person->{'last-name'} . '</a></span> ' . $share->comment;?></div>
+                <div style="margin: 0.5em 0 0 2em;">
                   <?php
-                  if($share->content) {
+                  if($update->{'is-likable'} == 'true') {
+                    if($update->{'is-liked'} == 'true') {
+                      echo '<a href="' . $_SERVER['PHP_SELF'] . '?' . LINKEDIN::_GET_TYPE . '=unlike&amp;nKey=' . $update->{'update-key'} . '">Unlike</a> (' . $update->{'num-likes'} . ')';
+                    } else {
+                      echo '<a href="' . $_SERVER['PHP_SELF'] . '?' . LINKEDIN::_GET_TYPE . '=like&amp;nKey=' . $update->{'update-key'} . '">Like</a> (' . $update->{'num-likes'} . ')';
+                    }
+                    if($update->{'num-likes'} > 0) {
+                      $likes = $OBJ_linkedin->likes((string)$update->{'update-key'});
+                      if($likes['success'] === TRUE) {
+                        $likes['linkedin'] = new SimpleXMLElement($likes['linkedin']);
+                        echo "<pre>" . print_r($likes['linkedin'], TRUE) . "</pre>";
+                      } else {
+                        // likes retrieval failed
+                        echo "Error retrieving likes:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($likes) . "</pre>";
+                      }
+                    }
+                  }
+                  ?>
+                </div>
+                <div style="margin: 0.5em 0 0 2em;">
+                  <?php
+                  if($update->{'is-commentable'} == 'true') {
+                    if($update->{'update-comments'}) {
+                      // there are comments for this update
+                      echo $update->{'update-comments'}['total'] . ' Comment(s)';
+                      
+                      $comments = $OBJ_linkedin->comments((string)$update->{'update-key'});
+                      if($comments['success'] === TRUE) {
+                        $comments['linkedin'] = new SimpleXMLElement($comments['linkedin']);
+                        echo "<pre>" . print_r($comments['linkedin'], TRUE) . "</pre>";
+                      } else {
+                        // comments retrieval failed
+                        echo "Error retrieving comments:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($comments) . "</pre>";
+                      }
+                    } else {
+                      // no comments for this update
+                      echo 'No Comments';
+                    }
                     ?>
-                    <div style="width: 400px; margin: 0.5em 0 0.5em 2em;"><a href="<?php echo $share->content->{'submitted-url'};?>"><?php echo $share->content->title;?></a></div>
-                    <div style="width: 400px; margin: 0.5em 0 0.5em 2em;"><?php echo $share->content->description;?></div>
-                    <div style="margin: 0.5em 0 0.5em 2em;"><span style="font-weight: bold;">Share this content with your network:</span>
-                      <form id="linkedin_reshare_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
-                        <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="reshare" />
-                        <input type="hidden" id="sid" name="sid" value="<?php echo $share->id;?>" />
+                    <div style="margin: 0 0 0 2em;">
+                      <form id="linkedin_comment_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
+                        <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="comment" />
+                        <input type="hidden" id="nkey" name="nkey" value="<?php echo $update->{'update-key'};?>" />
                         <textarea name="scomment" id="scomment_<?php echo $share->id;?>" rows="4" style="display: block; width: 400px;"></textarea>
-                        <input type="submit" value="Re-Share Content" /><input type="checkbox" value="1" name="sprivate" id="sprivate_<?php echo $share->id;?>" checked="checked" /><label for="rsprivate">re-share with your connections only</label>
+                        <input type="submit" value="Post Comment" />
                       </form>
                     </div>
                     <?php
                   }
                   ?>
-                  <div style="margin: 0.5em 0 0 2em;">
-                    <?php
-                    if($update->{'is-likable'} == 'true') {
-                      if($update->{'is-liked'} == 'true') {
-                        echo '<a href="' . $_SERVER['PHP_SELF'] . '?' . LINKEDIN::_GET_TYPE . '=unlike&amp;nKey=' . $update->{'update-key'} . '">Unlike</a> (' . $update->{'num-likes'} . ')';
-                      } else {
-                        echo '<a href="' . $_SERVER['PHP_SELF'] . '?' . LINKEDIN::_GET_TYPE . '=like&amp;nKey=' . $update->{'update-key'} . '">Like</a> (' . $update->{'num-likes'} . ')';
-                      }
-                      if($update->{'num-likes'} > 0) {
-                        $likes = $OBJ_linkedin->likes((string)$update->{'update-key'});
-                        if($likes['success'] === TRUE) {
-                          $likes['linkedin'] = new SimpleXMLElement($likes['linkedin']);
-                          echo "<pre>" . print_r($likes['linkedin'], TRUE) . "</pre>";
-                        } else {
-                          // likes retrieval failed
-                          echo "Error retrieving likes:\n\nRESPONSE:\n\n<pre>" . print_r($likes) . "</pre>";
-                        }
-                      }
-                    }
-                    ?>
-                  </div>
-                  <div style="margin: 0.5em 0 0 2em;">
-                    <?php
-                    if($update->{'is-commentable'} == 'true') {
-                      if($update->{'update-comments'}) {
-                        // there are comments for this update
-                        echo $update->{'update-comments'}['total'] . ' Comment(s)';
-                        
-                        $comments = $OBJ_linkedin->comments((string)$update->{'update-key'});
-                        if($comments['success'] === TRUE) {
-                          $comments['linkedin'] = new SimpleXMLElement($comments['linkedin']);
-                          echo "<pre>" . print_r($comments['linkedin'], TRUE) . "</pre>";
-                        } else {
-                          // comments retrieval failed
-                          echo "Error retrieving comments:\n\nRESPONSE:\n\n<pre>" . print_r($comments) . "</pre>";
-                        }
-                      } else {
-                        // no comments for this update
-                        echo 'No Comments';
-                      }
-                      ?>
-                      <div style="margin: 0 0 0 2em;">
-                        <form id="linkedin_comment_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
-                          <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="comment" />
-                          <input type="hidden" id="nkey" name="nkey" value="<?php echo $update->{'update-key'};?>" />
-                          <textarea name="scomment" id="scomment_<?php echo $share->id;?>" rows="4" style="display: block; width: 400px;"></textarea>
-                          <input type="submit" value="Post Comment" />
-                        </form>
-                      </div>
-                      <?php
-                    }
-                    ?>
-                  </div>
-                  <div style="border-bottom: 1px dashed #000; margin: 1em 0;"></div>
-                  <?php
-                }
-              } else {
-                // update retrieval failed
-                echo "Error retrieving updates:\n\nRESPONSE:\n\n<pre>" . print_r($response) . "</pre>";                
+                </div>
+                <div style="border-bottom: 1px dashed #000; margin: 1em 0;"></div>
+                <?php
               }
-              ?>
-              
-              <hr />
-              
-              <h2 id="search">People Search:</h2>
-              
-              <p>All 1st degree connections living in the San Francisco Bay Area (returned in JSONP format):</p>
-              
-              <?php
-              $OBJ_linkedin->setResponseFormat(LINKEDIN::_RESPONSE_JSONP);
-              $query    = '?facet=location,us:84&facet=network,F';
-              $response = $OBJ_linkedin->search($query);
-              if($response['success'] === TRUE) {
-                //$response['linkedin'] = new SimpleXMLElement($response['linkedin']);
-                echo "<pre>" . print_r($response['linkedin'], TRUE) . "</pre>";
-              } else {
-                // people search retrieval failed
-                echo "Error retrieving search results:\n\nRESPONSE:\n\n<pre>" . print_r($response) . "</pre>";                
-              }
-              ?>
-              
-              <hr />
-              
-              <h2 id="content">Creating / Sharing Content</h2>
-              
-              <h3 id="content_update">Post Network Update:</h3>
-              <form id="linkedin_nu_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
-                <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="nupdate" />
-                <textarea name="nupdate" id="nupdate" rows="4" style="display: block; width: 400px;"></textarea>
-                <input type="submit" value="Post Network Update" />
-              </form>
-              
-              <hr />
-              
-              <h3 id="content_share">Share Content:</h3>
-              <form id="linkedin_share_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
-                <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="share" />
-                <div style="font-weight: bold;">Comment:</div>
-                <textarea name="scomment" id="scomment" rows="4" style="display: block; width: 400px;"></textarea>
-                
-                <div style="font-weight: bold;">Title:</div>            
-                <input type="text" name="stitle" id="stitle" length="255" maxlength="255" style="display: block; width: 400px;" value="" />
-                
-                <div style="font-weight: bold;">Content Url:</div>            
-                <input type="text" name="surl" id="surl" length="255" maxlength="255" style="display: block; width: 400px;" value="" />
-                
-                <div style="font-weight: bold;">Content Picture Url:</div>            
-                <input type="text" name="simgurl" id="simgurl" length="255" maxlength="255" style="display: block; width: 400px;" value="" />
-                
-                <div style="font-weight: bold;">Description:</div>
-                <textarea name="sdescription" id="sdescription" rows="4" style="display: block; width: 400px;"></textarea>
-                
-                <input type="submit" value="Post Content" /><input type="checkbox" value="1" name="sprivate" id="sprivate" checked="checked" /><label for="sprivate">share with your connections only</label>
-              </form>
-              <?php
             } else {
-              // failed setting user access token
-              echo "An error occured setting the user access token.";
+              // update retrieval failed
+              echo "Error retrieving updates:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response) . "</pre>";                
             }
+            ?>
+            
+            <hr />
+            
+            <h2 id="search">People Search:</h2>
+            
+            <p>All 1st degree connections living in the San Francisco Bay Area (returned in JSON format):</p>
+            
+            <?php
+            $OBJ_linkedin->setResponseFormat(LINKEDIN::_RESPONSE_JSON);
+            $query    = '?facet=location,us:84&facet=network,F';
+            $response = $OBJ_linkedin->search($query);
+            if($response['success'] === TRUE) {
+              //$response['linkedin'] = new SimpleXMLElement($response['linkedin']);
+              echo "<pre>" . print_r($response['linkedin'], TRUE) . "</pre>";
+            } else {
+              // people search retrieval failed
+              echo "Error retrieving search results:<br /><br />RESPONSE:<br /><br /><pre>" . print_r($response) . "</pre>";                
+            }
+            ?>
+            
+            <hr />
+            
+            <h2 id="content">Creating / Sharing Content</h2>
+            
+            <h3 id="content_update">Post Network Update:</h3>
+            <form id="linkedin_nu_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
+              <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="updateNetwork" />
+              <textarea name="updateNetwork" id="updateNetwork" rows="4" style="display: block; width: 400px;"></textarea>
+              <input type="submit" value="Post Network Update" />
+            </form>
+            
+            <hr />
+            
+            <h3 id="content_share">Post Share:</h3>
+            <form id="linkedin_share_form" action="<?php echo $_SERVER['PHP_SELF'];?>" method="post">
+              <input type="hidden" name="<?php echo LINKEDIN::_GET_TYPE;?>" id="<?php echo LINKEDIN::_GET_TYPE;?>" value="share" />
+              <div style="font-weight: bold;">Comment:</div>
+              <textarea name="scomment" id="scomment" rows="4" style="display: block; width: 400px;"></textarea>
+              
+              <div style="font-weight: bold;">Title:</div>            
+              <input type="text" name="stitle" id="stitle" length="255" maxlength="255" style="display: block; width: 400px;" value="" />
+              
+              <div style="font-weight: bold;">Content Url:</div>            
+              <input type="text" name="surl" id="surl" length="255" maxlength="255" style="display: block; width: 400px;" value="" />
+              
+              <div style="font-weight: bold;">Content Picture Url:</div>            
+              <input type="text" name="simgurl" id="simgurl" length="255" maxlength="255" style="display: block; width: 400px;" value="" />
+              
+              <div style="font-weight: bold;">Description:</div>
+              <textarea name="sdescription" id="sdescription" rows="4" style="display: block; width: 400px;"></textarea>
+              
+              <input type="submit" value="Post Content" /><input type="checkbox" value="1" name="sprivate" id="sprivate" checked="checked" /><label for="sprivate">share with your connections only</label>
+            </form>
+            <?php
           } else {
             // user isn't connected
             ?>
@@ -723,6 +720,9 @@ try {
       <?php
       break;
   }
+} catch(Exception $e) {
+  // exception raised by library call
+  echo $e->getMessage();
 } catch(LinkedInException $e) {
   // exception raised by library call
   echo $e->getMessage();

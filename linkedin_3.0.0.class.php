@@ -39,7 +39,7 @@
  * 
  * There are two files needed to enable LinkedIn API functionality from PHP; the
  * stand-alone OAuth library, and this LinkedIn class.  The latest version of 
- * the OAuth library can be found on Google Code:
+ * the stand-alone OAuth library can be found on Google Code:
  * 
  * http://code.google.com/p/oauth/
  *   
@@ -92,15 +92,15 @@
 /**
  * Source: http://code.google.com/p/oauth/
  * 
- * Rename and move as needed, be sure to change the require_once() call to the
- * correct name and path.
+ * Rename and move as needed, changing the require_once() call to the correct 
+ * name and path.
  */    
 if(!extension_loaded('oauth')) {
   // the PECL OAuth extension is not present, load our third-party OAuth library
   require_once('OAuth.php');
 } else {
   // the PECL extension is present, which is not compatible with this library
-  throw new LinkedInException('LinkedIn: library not compatible with installed PECL OAuth extension.  Please disable this extension to use the Simple-LinkedIn library.');
+  throw new LinkedInException('Simple-LinkedIn: library not compatible with installed PECL OAuth extension.  Please disable this extension to use the Simple-LinkedIn library.');
 }
 
 /**
@@ -122,12 +122,7 @@ class LinkedInException extends Exception {}
  * @package classpackage
  */
 class LinkedIn {
-  // api keys (live and development, if applicable)
-  const _API_KEY                     = '<your application key here>';
-  const _API_SECRET                  = '<your application secret here>';
-  const _API_DEV_MODE                = FALSE;
-  const _API_DEV_KEY                 = '<your development application key here>';
-  const _API_DEV_SECRET              = '<your development application secret here>';
+  // api/oauth settings
   const _API_OAUTH_REALM             = 'http://api.linkedin.com';
   const _API_OAUTH_VERSION           = '1.0';
   
@@ -168,32 +163,36 @@ class LinkedIn {
 	
 	// Library version
 	const _VERSION                     = '3.0.0';
-
-  public $consumer, $method;
+  
+  // oauth properties
+  protected $callback;
+  protected $token_access, 
+            $token_request           = NULL;
+  
+  // application properties
+  protected $application_key, $application_secret;
   
   // the format of the data to return
-  public $response_format            = self::_DEFAULT_RESPONSE_FORMAT;
-  
-  protected $callback;
-  protected $token_access, $token_request;
+  protected $response_format         = self::_DEFAULT_RESPONSE_FORMAT;
   
 	/**
 	 * Create a LinkedIn object, used for OAuth-based authentication and 
 	 * communication with the LinkedIn API.	 
 	 * 
-	 * @param    str   $callback_url   [OPTIONAL] The URL to return the user to.
+	 * @param    arr   $config         The 'start-up' object properties.
+	 *  - appKey       => The application's API key
+	 *  - appSecret    => The application's secret key
+	 *  - callbackUrl  => [OPTIONAL] the callback URL   	 
 	 * @return   obj                   A new LinkedIn object.	 
 	 */
-	public function __construct($callback_url = NULL) {
-	  if(self::_API_DEV_MODE) {
-	    // 'development' mode
-		  $this->consumer = new OAuthConsumer(self::_API_DEV_KEY, self::_API_DEV_SECRET, $callback_url);
-    } else {
-      // 'live' mode
-      $this->consumer = new OAuthConsumer(self::_API_KEY, self::_API_SECRET, $callback_url);
-    }		
-		$this->method = new OAuthSignatureMethod_HMAC_SHA1();
-		$this->setCallback($callback_url);
+	public function __construct($config) {
+    if(!is_array($config)) {
+      // bad data passed
+		  throw new LinkedInException('LinkedIn->__construct(): bad data passed, $config must be of type array.');
+    }
+    $this->setApplicationKey($config['appKey']);
+	  $this->setApplicationSecret($config['appSecret']);
+	  $this->setCallbackUrl($config['callbackUrl']);
 	}
 	
 	/**
@@ -240,7 +239,7 @@ class LinkedIn {
 
     // send request
     $comment_url  = self::_URL_API . '/v1/people/~/network/updates/key=' . $uid . '/update-comments';
-    $response     = $this->request('POST', $comment_url, $data);
+    $response     = $this->fetch('POST', $comment_url, $data);
     
     /**
 	   * Check for successful comment (a 201 response from LinkedIn server) 
@@ -253,7 +252,7 @@ class LinkedIn {
     } else {
       // problem posting our comment
       $return_data            = $response;
-      $return_data['error']   = 'HTTP response from LinkedIn end-point was not 201';
+      $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 201';
       $return_data['success'] = FALSE;
     }
 		return $return_data;
@@ -276,7 +275,7 @@ class LinkedIn {
 		
 		// send request
     $comments_url = self::_URL_API . '/v1/people/~/network/updates/key=' . $uid . '/update-comments';
-    $response     = $this->request('GET', $comments_url);
+    $response     = $this->fetch('GET', $comments_url);
     
   	/**
 	   * Check for successful comments retrieval (a 200 response from LinkedIn server) 
@@ -289,7 +288,7 @@ class LinkedIn {
     } else {
       // problem getting the comments
       $return_data            = $response;
-      $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
+      $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
       $return_data['success'] = FALSE;
     }
     return $return_data;
@@ -315,7 +314,7 @@ class LinkedIn {
 	  }
 	  
 	  $query    = self::_URL_API . '/v1/people/' . trim($options);
-	  $response = $this->request('GET', $query);
+	  $response = $this->fetch('GET', $query);
 	  if($response['info']['http_code'] == 200) {
 	    // connections request successful
 	    $return_data            = $response;
@@ -323,10 +322,117 @@ class LinkedIn {
 	  } else {
 	    // connections request failed
 	    $return_data            = $response;
-	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
+	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
 	    $return_data['success'] = FALSE;
 	  }
 		return $return_data;
+	}
+	
+	/**
+	 * General data send/request method.
+	 * 
+	 * @param    str   $method         The data communication method.	 
+	 * @param    str   $url            The Linkedin API endpoint to connect with.
+	 * @param    str   $data           [OPTIONAL] The data to send to LinkedIn.
+	 * @param    arr   $parameters     [OPTIONAL] Addition OAuth parameters to send to LinkedIn.    
+	 * @return   arr                   Array containing:
+	 * 
+	 * array(
+	 *   'info'      =>	Connection information,
+	 *   'linkedin'  => LinkedIn response,  
+	 *   'oauth'     => The OAuth request string that was sent to LinkedIn	 
+	 * )	 
+	 */
+	protected function fetch($method, $url, $data = NULL, $parameters = array()) {
+	  // check for cURL
+	  if(!extension_loaded('curl')) {
+	    // cURL not present
+      throw new LinkedInException('LinkedIn->fetch(): PHP cURL extension does not appear to be loaded/present.');
+	  }
+	  
+    try {
+	    // generate OAuth values
+	    $consumer      = new OAuthConsumer($this->getApplicationKey(), $this->getApplicationSecret(), $this->getCallbackUrl());
+	    $token_access  = $this->getTokenAccess();
+      $defaults      = array(
+        'oauth_version' => self::_API_OAUTH_VERSION
+      );
+	    $parameters  = array_merge($defaults, $parameters);
+	    
+	    // generate OAuth request
+  		$oauth_req   = OAuthRequest::from_consumer_and_token($consumer, new OAuthToken($token_access['oauth_token'], $token_access['oauth_token_secret']), $method, $url, $parameters);
+      $oauth_req->sign_request(new OAuthSignatureMethod_HMAC_SHA1(), $consumer, new OAuthToken($token_access['oauth_token'], $token_access['oauth_token_secret']));
+      
+      // start cURL, checking for a successful initiation
+      if(!$handle = curl_init()) {
+         // cURL failed to start
+        throw new LinkedInException('LinkedIn->fetch(): cURL did not initialize properly.');
+      }
+      
+      // set cURL options, based on parameters passed
+	    curl_setopt($handle, CURLOPT_CUSTOMREQUEST, $method);
+      curl_setopt($handle, CURLOPT_RETURNTRANSFER, TRUE);
+      curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, FALSE);
+      curl_setopt($handle, CURLOPT_URL, $url);
+      curl_setopt($handle, CURLOPT_VERBOSE, TRUE);
+      
+      // configure the header we are sending to LinkedIn - http://developer.linkedin.com/docs/DOC-1203
+      $header = array($oauth_req->to_header(self::_API_OAUTH_REALM));
+      if(is_null($data)) {
+        // not sending data, identify the content type
+        $header[] = 'Content-Type: text/plain; charset=UTF-8';
+        switch($this->getResponseFormat()) {
+          case self::_RESPONSE_JSON:
+            $header[] = 'x-li-format: json';
+            break;
+          case self::_RESPONSE_JSONP:
+            $header[] = 'x-li-format: jsonp';
+            break;
+        }
+      } else {
+        $header[] = 'Content-Type: text/xml; charset=UTF-8';
+        curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
+      }
+      curl_setopt($handle, CURLOPT_HTTPHEADER, $header);
+      
+      // gather the response
+      $return_data['linkedin']        = curl_exec($handle);
+      $return_data['info']            = curl_getinfo($handle);
+      $return_data['oauth']['header'] = $oauth_req->to_header(self::_API_OAUTH_REALM);
+      $return_data['oauth']['string'] = $oauth_req->base_string;
+            
+      // check for throttling
+      if(self::isThrottled($return_data['linkedin'])) {
+        throw new LinkedInException('LinkedIn->fetch(): throttling limit for this user/application has been reached.');
+      }
+      
+      // close cURL connection
+      curl_close($handle);
+      
+      // no exceptions thrown, return the data
+      return $return_data;
+    } catch(OAuthException $e) {
+      // oauth exception raised
+      throw new LinkedInException('OAuth exception caught: ' . $e->getMessage());
+    }
+	}
+	
+	/**
+	 * Get the application_key property.
+	 * 
+	 * @return   str                   The application key.       	 
+	 */
+	public function getApplicationKey() {
+	  return $this->application_key;
+	}
+	
+	/**
+	 * Get the application_secret property.
+	 * 
+	 * @return   str                   The application secret.       	 
+	 */
+	public function getApplicationSecret() {
+	  return $this->application_secret;
 	}
 	
 	/**
@@ -334,7 +440,7 @@ class LinkedIn {
 	 * 
 	 * @return   str                   The callback url.       	 
 	 */
-	public function getCallback() {
+	public function getCallbackUrl() {
 	  return $this->callback;
 	}
   
@@ -420,12 +526,12 @@ class LinkedIn {
       throw new LinkedInException('LinkedIn->invite(): you must provide a single invitation recipient.');
     }
     if(!empty($subject)) {
-      $subject = trim(strip_tags(stripslashes($subject)));
+      $subject = trim(htmlspecialchars(strip_tags(stripslashes($subject))));
     } else {
       throw new LinkedInException('LinkedIn->invite(): message subject is empty.');
     }
     if(!empty($body)) {
-      $body = trim(strip_tags(stripslashes($body)));
+      $body = trim(htmlspecialchars(strip_tags(stripslashes($body))));
     } else {
       throw new LinkedInException('LinkedIn->invite(): message body is empty.');
     }
@@ -446,8 +552,8 @@ class LinkedIn {
                        case 'email':
                          // email-based invitation
                          $data .= '<person path="/people/email=' . $recipient['email'] . '">
-                                     <first-name>' . $recipient['first-name'] . '</first-name>
-                                     <last-name>' . $recipient['last-name'] . '</last-name>
+                                     <first-name>' . htmlspecialchars($recipient['first-name']) . '</first-name>
+                                     <last-name>' . htmlspecialchars($recipient['last-name']) . '</last-name>
                                    </person>';
                          break;
                        case 'id':
@@ -498,7 +604,7 @@ class LinkedIn {
     
     // send request
     $invite_url = self::_URL_API . '/v1/people/~/mailbox';
-    $response   = $this->request('POST', $invite_url, $data);
+    $response   = $this->fetch('POST', $invite_url, $data);
 		
 		/**
 	   * Check for successful update (a 201 response from LinkedIn server) 
@@ -511,7 +617,7 @@ class LinkedIn {
     } else {
       // problem posting our connection message(s)
       $return_data            = $response;
-      $return_data['error']   = 'HTTP response from LinkedIn end-point was not 201';
+      $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 201';
       $return_data['success'] = FALSE;
     }
 		return $return_data;
@@ -594,7 +700,7 @@ class LinkedIn {
 		
 		// send request
     $like_url = self::_URL_API . '/v1/people/~/network/updates/key=' . $uid . '/is-liked';
-    $response = $this->request('PUT', $like_url, $data);
+    $response = $this->fetch('PUT', $like_url, $data);
     
   	/**
 	   * Check for successful like (a 201 response from LinkedIn server) 
@@ -607,7 +713,7 @@ class LinkedIn {
     } else {
       // problem posting our like
       $return_data            = $response;
-      $return_data['error']   = 'HTTP response from LinkedIn end-point was not 201';
+      $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 201';
       $return_data['success'] = FALSE;
     }
     return $return_data;
@@ -630,7 +736,7 @@ class LinkedIn {
 		
 		// send request
     $likes_url  = self::_URL_API . '/v1/people/~/network/updates/key=' . $uid . '/likes';
-    $response   = $this->request('GET', $likes_url);
+    $response   = $this->fetch('GET', $likes_url);
     
   	/**
 	   * Check for successful likes retrieval (a 200 response from LinkedIn server) 
@@ -643,7 +749,7 @@ class LinkedIn {
     } else {
       // problem getting the likes
       $return_data            = $response;
-      $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
+      $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
       $return_data['success'] = FALSE;
     }
     return $return_data;
@@ -692,13 +798,13 @@ class LinkedIn {
                     $data .= '<recipient><person path="/people/' . trim($recipients[$i]) . '"/></recipient>';
                   }
     $data  .= '  </recipients>
-                 <subject>' . $subject . '</subject>
-                 <body>' . $body . '</body>
+                 <subject>' . htmlspecialchars($subject) . '</subject>
+                 <body>' . htmlspecialchars($body) . '</body>
                </mailbox-item>';
     
     // send request
     $message_url  = self::_URL_API . '/v1/people/~/mailbox';
-    $response     = $this->request('POST', $message_url, $data);
+    $response     = $this->fetch('POST', $message_url, $data);
 		
 		/**
 	   * Check for successful update (a 201 response from LinkedIn server) 
@@ -711,7 +817,7 @@ class LinkedIn {
     } else {
       // problem sending message(s)
       $return_data            = $response;
-      $return_data['error']   = 'HTTP response from LinkedIn end-point was not 201';
+      $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 201';
       $return_data['success'] = FALSE;
     }
 		return $return_data;
@@ -738,7 +844,7 @@ class LinkedIn {
 	  }
 	  
 	  $query = self::_URL_API . '/v1/people/' . trim($options);
-	  $response = $this->request('GET', $query);
+	  $response = $this->fetch('GET', $query);
 	  if($response['info']['http_code'] == 200) {
 	    // profile request successful
 	    $return_data            = $response;
@@ -746,35 +852,92 @@ class LinkedIn {
 	  } else {
 	    // profile request failed
 	    $return_data            = $response;
-	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
+	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
 	    $return_data['success'] = FALSE;
 	  }
 		return $return_data;
 	}
 	
 	/**
-	 * General data send/request method.
+	 * Request the user's access token from the Linkedin API.
 	 * 
-	 * @param    str   $method         The data communication method.	 
-	 * @param    str   $url            The Linkedin API endpoint to connect with.
-	 * @param    str   $data           [OPTIONAL] The data to send via to LinkedIn.	 
-	 * @return   arr                   Array containing retrieval success, LinkedIn XML formatted response.
+	 * @param    str   $token          The token returned from the user authorization stage.
+	 * @param    str   $secret         The secret returned from the request token stage.
+	 * @param    str   $verifier       The verification value from LinkedIn.	 
+	 * @return   arr                   The Linkedin OAuth/http response, in array format.      	 
 	 */
-	protected function request($method, $url, $data = NULL) {
+	public function retrieveTokenAccess($token, $secret, $verifier) {
+	  // check passed data
+    if(!is_string($token) || !is_string($secret) || !is_string($verifier)) {
+      // nothing passed, raise an exception
+		  throw new LinkedInException('LinkedIn->retrieveTokenAccess(): bad data passed, string type is required for $token, $secret and $verifier.');
+    }
+    
+    // start retrieval process
 	  try {
-  		$oauth_req            = OAuthRequest::from_consumer_and_token($this->consumer, $this->getTokenAccess(), $method, $url);
-      $oauth_req::$version  = self::_API_OAUTH_VERSION; 
-      $oauth_req->sign_request($this->method, $this->consumer, $this->getTokenAccess());
-      switch($method) {
-        case 'DELETE':
-        case 'GET':
-          return $this->sendRequest($oauth_req, $url, $method);
-          break;
-        case 'POST':
-        case 'PUT':
-          return $this->sendRequest($oauth_req, $url, $method, $data);
-          break;
+  	  $this->setTokenAccess(array('oauth_token' => $token, 'oauth_token_secret' => $secret));
+      $parameters = array(
+        'oauth_verifier' => $verifier
+      );
+      $response = $this->fetch(self::_METHOD_TOKENS, self::_URL_ACCESS, NULL, $parameters);
+      
+      parse_str($response['linkedin'], $response['linkedin']);
+      if($response['info']['http_code'] == 200) {
+        // tokens retrieved
+        $this->setTokenAccess($response['linkedin']);
+        
+        // set the response
+        $return_data            = $response;
+        $return_data['success'] = TRUE;
+      } else {
+        // error getting the request tokens
+        $this->setTokenAccess(NULL);
+        
+        // set the response
+        $return_data            = $response;
+        $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
+        $return_data['success'] = FALSE;
       }
+      return $return_data;
+    } catch(OAuthException $e) {
+      // oauth exception raised
+      throw new LinkedInException('OAuth exception caught: ' . $e->getMessage());
+    }
+	}
+	
+	/**
+	 * Get the request token from the Linkedin API.
+	 * 
+	 * @return   arr                   The Linkedin OAuth/http response, in array format.      	 
+	 */
+	public function retrieveTokenRequest() {
+	  try {
+	    $parameters = array(
+        'oauth_callback' => $this->getCallbackUrl()
+      );
+      $response = $this->fetch(self::_METHOD_TOKENS, self::_URL_REQUEST, NULL, $parameters);
+      parse_str($response['linkedin'], $response['linkedin']);
+      if(($response['info']['http_code'] == 200) && ($response['linkedin']['oauth_callback_confirmed'] == 'true')) {
+        // tokens retrieved
+        $this->setTokenRequest($response['linkedin']);
+        
+        // set the response
+        $return_data            = $response;
+        $return_data['success'] = TRUE;        
+      } else {
+        // error getting the request tokens
+        $this->setTokenRequest(NULL);
+        
+        // set the response
+        $return_data = $response;
+        if($response['linkedin']['oauth_callback_confirmed'] == 'true') {
+          $return_data['error'] = 'HTTP response from LinkedIn end-point was not code 200';
+        } else {
+          $return_data['error'] = 'OAuth callback url was not confirmed by the LinkedIn end-point';
+        }
+        $return_data['success'] = FALSE;
+      }
+      return $return_data;
     } catch(OAuthException $e) {
       // oauth exception raised
       throw new LinkedInException('OAuth exception caught: ' . $e->getMessage());
@@ -793,7 +956,7 @@ class LinkedIn {
 	public function revoke() {
 	  try {
   	  // send request
-  	  $response = $this->request('GET', self::_URL_REVOKE);
+  	  $response = $this->fetch('GET', self::_URL_REVOKE);
   	  
   	  /**
   	   * Check for successful revocation (a 200 response from LinkedIn server) 
@@ -807,7 +970,7 @@ class LinkedIn {
         $return_data['success'] = TRUE;
       } else {
         $return_data            = $response;
-        $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
+        $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
         $return_data['success'] = FALSE;
       }
       return $return_data;
@@ -837,7 +1000,7 @@ class LinkedIn {
 	  }
 	  
     $query    = self::_URL_API . '/v1/people-search' . trim($options);
-		$response = $this->request('GET', $query);
+		$response = $this->fetch('GET', $query);
 		if($response['info']['http_code'] == 200) {
 	    // search request successful
 	    $return_data            = $response;
@@ -845,92 +1008,28 @@ class LinkedIn {
 	  } else {
 	    // search request failed
 	    $return_data            = $response;
-	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
+	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
 	    $return_data['success'] = FALSE;
 	  }
 		return $return_data;
 	}
 	
 	/**
-	 * Linkedin cURL specific method, returning response:
+	 * Set the application_key property.
 	 * 
-	 * array(
-	 *   'info'      =>	Connection information,
-	 *   'linkedin'  => LinkedIn response,  
-	 *   'oauth'     => The OAuth request string that was sent to LinkedIn	 
-	 * )   	 
-	 * 
-	 * @param    obj   $request        The oauth request object to use.
-	 * @param    str   $url            Url to send data to.
-	 * @param    str   $method         Http protocol method.
-	 * @param    str   $data           [OPTIONAL] Data to send with the request.         	 
-	 * @return   arr                   A array containing the LinkedIn response and the connection information.                  
+	 * @param   str    $key            The application key.       	 
 	 */
-	protected function sendRequest($request, $url, $method, $data = NULL) {
-	  // check for cURL
-	  if(!extension_loaded('curl')) {
-	    // cURL not present
-      throw new LinkedInException('LinkedIn->sendRequest(): PHP cURL extension does not appear to be loaded/present.');
-	  }
-	  
-    // start cURL, checking for a successful initiation
-    if($handle = curl_init()) {
-      // set cURL options, based on parameters passed
-	    curl_setopt($handle, CURLOPT_HEADER, FALSE);
-      curl_setopt($handle, CURLOPT_RETURNTRANSFER, TRUE);
-      curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, FALSE);
-      curl_setopt($handle, CURLOPT_URL, $url);
-      curl_setopt($handle, CURLOPT_VERBOSE, TRUE);
-      
-      // check the method we are using to communicate with LinkedIn
-      switch($method) {
-        case 'DELETE':
-          curl_setopt($handle, CURLOPT_CUSTOMREQUEST, $method);
-          break;
-        case 'POST':
-        case 'PUT':
-          curl_setopt($handle, CURLOPT_POST, TRUE);
-          curl_setopt($handle, CURLOPT_CUSTOMREQUEST, $method);
-          break;
-      }
-      
-      // configure the header we are sending to LinkedIn - http://developer.linkedin.com/docs/DOC-1203
-      $header = array($request->to_header(self::_API_OAUTH_REALM));
-      if(is_null($data)) {
-        switch($this->getResponseFormat()) {
-          case self::_RESPONSE_JSON:
-            $header[] = 'x-li-format: json';
-            break;
-          case self::_RESPONSE_JSONP:
-            $header[] = 'x-li-format: jsonp';
-            break;
-        }
-      } else {
-        $header[] = 'Content-Type: text/xml; charset=UTF-8';
-        curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
-      }
-      curl_setopt($handle, CURLOPT_HTTPHEADER, $header);
-      
-      // gather the response
-      $return_data['info']            = curl_getinfo($handle);
-      $return_data['linkedin']        = curl_exec($handle);
-      $return_data['oauth']['header'] = $request->to_header;
-      $return_data['oauth']['string'] = $request->base_string;
-            
-      // check for throttling
-      if(self::isThrottled($return_data['linkedin'])) {
-        throw new LinkedInException('LinkedIn->sendRequest(): throttling limit has been reached.');
-      }
-      
-      // close cURL connection
-      curl_close($handle);
-      
-      // no exceptions thrown, return the data
-      return $return_data;
-    } else {
-      // cURL failed to start
-      throw new LinkedInException('LinkedIn->sendRequest(): cURL did not initialize properly.');
-    }
+	public function setApplicationKey($key) {
+	  $this->application_key = $key;
+	}
+	
+	/**
+	 * Set the application_secret property.
+	 * 
+	 * @param   str    $secret         The application secret.       	 
+	 */
+	public function setApplicationSecret($secret) {
+	  $this->application_secret = $secret;
 	}
 	
 	/**
@@ -938,7 +1037,7 @@ class LinkedIn {
 	 * 
 	 * @param   str    $url            The callback url.       	 
 	 */
-	public function setCallback($url) {
+	public function setCallbackUrl($url) {
 	  $this->callback = $url;
 	}
 	
@@ -969,13 +1068,7 @@ class LinkedIn {
 	    $this->token_access = NULL;
 	  } else {
 	    // something passed, set token
-	    try {
-	      $this->token_access = new OAuthToken($token_access['oauth_token'], $token_access['oauth_token_secret']);
-	    } catch(OAuthException $e) {
-        // error creating token
-        $this->token_access = NULL;
-        throw new LinkedInException('OAuth exception caught: ' . $e->getMessage());
-      }
+      $this->token_access = $token_access;
 	  }
 	}
 	
@@ -997,13 +1090,7 @@ class LinkedIn {
 	    $this->token_request = NULL;
 	  } else {
 	    // something passed, set token
-	    try {
-        $this->token_request = new OAuthToken($token_request['oauth_token'], $token_request['oauth_token_secret']);
-      } catch(OAuthException $e) {
-        // error creating token
-        $this->token_request = NULL;
-        throw new LinkedInException('OAuth exception caught: ' . $e->getMessage());
-      }
+	    $this->token_request = $token_request;
 	  }
 	}
 	
@@ -1045,7 +1132,7 @@ class LinkedIn {
       $content_xml  = NULL;
       if(array_key_exists('comment', $content)) {
         // comment located
-        $comment = substr(trim(strip_tags(stripslashes($content['comment']))), 0, self::_SHARE_COMMENT_LENGTH);
+        $comment = substr(htmlspecialchars(trim(strip_tags(stripslashes($content['comment'])))), 0, self::_SHARE_COMMENT_LENGTH);
         $content_xml .= '<comment>' . $comment . '</comment>';
         $share_flag = TRUE;
       }
@@ -1053,15 +1140,15 @@ class LinkedIn {
         case 'new':
           if(array_key_exists('title', $content) && array_key_exists('submitted-url', $content)) {
             // we have shared content, format it as needed per rules above
-            $content_title = substr(trim(strip_tags(stripslashes($content['title']))), 0, self::_SHARE_CONTENT_TITLE_LENGTH);
+            $content_title = substr(trim(htmlspecialchars(strip_tags(stripslashes($content['title'])))), 0, self::_SHARE_CONTENT_TITLE_LENGTH);
             $content_xml .= '<content>
                                <title>' . $content_title . '</title>
-                               <submitted-url>' . trim($content['submitted-url']) . '</submitted-url>';
+                               <submitted-url>' . trim(htmlspecialchars($content['submitted-url'])) . '</submitted-url>';
             if(array_key_exists('submitted-image-url', $content)) {
-              $content_xml .= '<submitted-image-url>' . trim($content['submitted-image-url']) . '</submitted-image-url>';
+              $content_xml .= '<submitted-image-url>' . trim(htmlspecialchars($content['submitted-image-url'])) . '</submitted-image-url>';
             }
             if(array_key_exists('description', $content)) {
-              $content_desc = substr(trim(strip_tags(stripslashes($content['description']))), 0, self::_SHARE_CONTENT_DESC_LENGTH);
+              $content_desc = substr(trim(htmlspecialchars(strip_tags(stripslashes($content['description'])))), 0, self::_SHARE_CONTENT_DESC_LENGTH);
               $content_xml .= '<description>' . $content_desc . '</description>';
             }
             $content_xml .= '</content>';
@@ -1107,7 +1194,7 @@ class LinkedIn {
   			}
         
         // send request
-        $response = $this->request('POST', $share_url, $data);
+        $response = $this->fetch('POST', $share_url, $data);
   		} else {
   		  // data contraints/rules not met, raise an exception
 		    throw new LinkedInException('LinkedIn->share(): sharing data constraints not met; check that you have supplied valid content and combinations of content to share.');
@@ -1128,7 +1215,7 @@ class LinkedIn {
     } else {
       // problem putting our status update
       $return_data            = $response;
-      $return_data['error']   = 'HTTP response from LinkedIn end-point was not 201';
+      $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 201';
       $return_data['success'] = FALSE;
     }
 		return $return_data;
@@ -1146,7 +1233,7 @@ class LinkedIn {
 	 */
 	public function statistics() {
 	  $query    = self::_URL_API . '/v1/people/~/network/network-stats';
-		$response = $this->request('GET', $query);
+		$response = $this->fetch('GET', $query);
 		if($response['info']['http_code'] == 200) {
 	    // statistics request successful
 	    $return_data            = $response;
@@ -1154,99 +1241,10 @@ class LinkedIn {
 	  } else {
 	    // statistics request failed
 	    $return_data            = $response;
-	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
+	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
 	    $return_data['success'] = FALSE;
 	  }
 		return $return_data;
-	}
-	
-	/**
-	 * Request the user's access token from the Linkedin API.
-	 * 
-	 * @param    str   $token          The token returned from the user authorization stage.
-	 * @param    str   $secret         The secret returned from the request token stage.
-	 * @param    str   $verifier       The verification value from LinkedIn.	 
-	 * @return   arr                   The Linkedin OAuth/http response, in array format.      	 
-	 */
-	public function retrieveTokenAccess($token, $secret, $verifier) {
-	  // check passed data
-    if(!is_string($token) || !is_string($secret) || !is_string($verifier)) {
-      // nothing passed, raise an exception
-		  throw new LinkedInException('LinkedIn->retrieveTokenAccess(): bad data passed, string type is required for $token, $secret and $verifier.');
-    }
-    
-    // start retrieval process
-	  try {
-  	  $token_access = new OAuthToken($token, $secret);
-  	  $oauth_req            = OAuthRequest::from_consumer_and_token($this->consumer, $token_access, self::_METHOD_TOKENS, LINKEDIN::_URL_ACCESS);
-  	  $oauth_req::$version  = self::_API_OAUTH_VERSION; 
-      $oauth_req->set_parameter('oauth_verifier', $verifier);
-      $oauth_req->sign_request($this->method, $this->consumer, $token_access);
-      
-      $response = $this->sendRequest($oauth_req, LINKEDIN::_URL_ACCESS, self::_METHOD_TOKENS);
-      parse_str($response['linkedin'], $response['linkedin']);
-      if($response['info']['http_code'] == 200) {
-        // tokens retrieved
-        $this->setTokenAccess($response['linkedin']);
-        
-        // set the response
-        $return_data            = $response;
-        $return_data['success'] = TRUE;
-      } else {
-        // error getting the request tokens
-        $this->setTokenAccess(NULL);
-        
-        // set the response
-        $return_data            = $response;
-        $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
-        $return_data['success'] = FALSE;
-      }
-      return $return_data;
-    } catch(OAuthException $e) {
-      // oauth exception raised
-      throw new LinkedInException('OAuth exception caught: ' . $e->getMessage());
-    }
-	}
-	
-	/**
-	 * Get the request token from the Linkedin API.
-	 * 
-	 * @return   arr                   The Linkedin OAuth/http response, in array format.      	 
-	 */
-	public function retrieveTokenRequest() {
-	  try {
-  	  $oauth_req            = OAuthRequest::from_consumer_and_token($this->consumer, NULL, self::_METHOD_TOKENS, LINKEDIN::_URL_REQUEST);
-  	  $oauth_req::$version  = self::_API_OAUTH_VERSION; 
-      $oauth_req->set_parameter('oauth_callback', $this->getCallback());
-      $oauth_req->sign_request($this->method, $this->consumer, NULL);
-      
-      $response = $this->sendRequest($oauth_req, LINKEDIN::_URL_REQUEST, self::_METHOD_TOKENS);
-      parse_str($response['linkedin'], $response['linkedin']);
-      if(($response['info']['http_code'] == 200) && ($response['linkedin']['oauth_callback_confirmed'] == 'true')) {
-        // tokens retrieved
-        $this->setTokenRequest($response['linkedin']);
-        
-        // set the response
-        $return_data            = $response;
-        $return_data['success'] = TRUE;        
-      } else {
-        // error getting the request tokens
-        $this->setTokenRequest(NULL);
-        
-        // set the response
-        $return_data = $response;
-        if($response['linkedin']['oauth_callback_confirmed'] == 'true') {
-          $return_data['error'] = 'HTTP response from LinkedIn end-point was not 200';
-        } else {
-          $return_data['error'] = 'OAuth callback url was not confirmed by the LinkedIn end-point';
-        }
-        $return_data['success'] = FALSE;
-      }
-      return $return_data;
-    } catch(OAuthException $e) {
-      // oauth exception raised
-      throw new LinkedInException('OAuth exception caught: ' . $e->getMessage());
-    }
 	}
 	
 	/**
@@ -1270,7 +1268,7 @@ class LinkedIn {
 		
 		// send request
     $like_url = self::_URL_API . '/v1/people/~/network/updates/key=' . $uid . '/is-liked';
-    $response = $this->request('PUT', $like_url, $data);
+    $response = $this->fetch('PUT', $like_url, $data);
     
   	/**
 	   * Check for successful unlike (a 201 response from LinkedIn server) 
@@ -1283,7 +1281,7 @@ class LinkedIn {
     } else {
       // problem unliking
       $return_data            = $response;
-      $return_data['error']   = 'HTTP response from LinkedIn end-point was not 201';
+      $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 201';
       $return_data['success'] = FALSE;
     }
     return $return_data;
@@ -1343,7 +1341,7 @@ class LinkedIn {
   
       // send request
       $update_url = self::_URL_API . '/v1/people/~/person-activities';
-      $response   = $this->request('POST', $update_url, $data);
+      $response   = $this->fetch('POST', $update_url, $data);
       
       /**
   	   * Check for successful update (a 201 response from LinkedIn server) 
@@ -1356,7 +1354,7 @@ class LinkedIn {
       } else {
         // problem posting our network update
         $return_data            = $response;
-        $return_data['error']   = 'HTTP response from LinkedIn end-point was not 201';
+        $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 201';
         $return_data['success'] = FALSE;
       }
     } else {
@@ -1391,11 +1389,11 @@ class LinkedIn {
 	  }
 	  
 	  if(!is_null($id) && self::isId($id)) {
-	    $query = self::_URL_API . '/v1/people/' . $id . '/network/updates?' . trim($options);
+	    $query = self::_URL_API . '/v1/people/' . $id . '/network/updates' . trim($options);
 	  } else {
-      $query = self::_URL_API . '/v1/people/~/network/updates?' . trim($options);
+      $query = self::_URL_API . '/v1/people/~/network/updates' . trim($options);
     }
-	  $response = $this->request('GET', $query);
+	  $response = $this->fetch('GET', $query);
 	  if($response['info']['http_code'] == 200) {
 	    // profile request successful
 	    $return_data            = $response;
@@ -1403,7 +1401,7 @@ class LinkedIn {
 	  } else {
 	    // profile request failed
 	    $return_data            = $response;
-	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not 200';
+	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
 	    $return_data['success'] = FALSE;
 	  }
 		return $return_data;
