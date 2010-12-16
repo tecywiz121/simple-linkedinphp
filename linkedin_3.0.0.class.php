@@ -352,16 +352,17 @@ class LinkedIn {
 	  
     try {
 	    // generate OAuth values
-	    $consumer      = new OAuthConsumer($this->getApplicationKey(), $this->getApplicationSecret(), $this->getCallbackUrl());
-	    $token_access  = $this->getTokenAccess();
-      $defaults      = array(
+	    $oauth_consumer  = new OAuthConsumer($this->getApplicationKey(), $this->getApplicationSecret(), $this->getCallbackUrl());
+	    $oauth_token     = $this->getTokenAccess();
+	    $oauth_token     = (!is_null($oauth_token)) ? new OAuthToken($oauth_token['oauth_token'], $oauth_token['oauth_token_secret']) : NULL;
+      $defaults        = array(
         'oauth_version' => self::_API_OAUTH_VERSION
       );
-	    $parameters  = array_merge($defaults, $parameters);
+	    $parameters    = array_merge($defaults, $parameters);
 	    
 	    // generate OAuth request
-  		$oauth_req   = OAuthRequest::from_consumer_and_token($consumer, new OAuthToken($token_access['oauth_token'], $token_access['oauth_token_secret']), $method, $url, $parameters);
-      $oauth_req->sign_request(new OAuthSignatureMethod_HMAC_SHA1(), $consumer, new OAuthToken($token_access['oauth_token'], $token_access['oauth_token_secret']));
+  		$oauth_req = OAuthRequest::from_consumer_and_token($oauth_consumer, $oauth_token, $method, $url, $parameters);
+      $oauth_req->sign_request(new OAuthSignatureMethod_HMAC_SHA1(), $oauth_consumer, $oauth_token);
       
       // start cURL, checking for a successful initiation
       if(!$handle = curl_init()) {
@@ -917,7 +918,7 @@ class LinkedIn {
       );
       $response = $this->fetch(self::_METHOD_TOKENS, self::_URL_REQUEST, NULL, $parameters);
       parse_str($response['linkedin'], $response['linkedin']);
-      if(($response['info']['http_code'] == 200) && ($response['linkedin']['oauth_callback_confirmed'] == 'true')) {
+      if(($response['info']['http_code'] == 200) && (array_key_exists('oauth_callback_confirmed', $response['linkedin'])) && ($response['linkedin']['oauth_callback_confirmed'] == 'true')) {
         // tokens retrieved
         $this->setTokenRequest($response['linkedin']);
         
@@ -930,7 +931,7 @@ class LinkedIn {
         
         // set the response
         $return_data = $response;
-        if($response['linkedin']['oauth_callback_confirmed'] == 'true') {
+        if((array_key_exists('oauth_callback_confirmed', $response['linkedin'])) && ($response['linkedin']['oauth_callback_confirmed'] == 'true')) {
           $return_data['error'] = 'HTTP response from LinkedIn end-point was not code 200';
         } else {
           $return_data['error'] = 'OAuth callback url was not confirmed by the LinkedIn end-point';
