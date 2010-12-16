@@ -50,12 +50,6 @@
  * Next, make sure the path to the OAuth library is correct (you can change this 
  * as needed, depending on your file organization scheme, etc).
  * 
- * Now, change the _API_KEY and _API_SECRET class constants below to your 
- * LinkedIn API live application keys.  If you are testing your applications
- * functionality and want the library to use your 'development' application keys, 
- * you can plug in your development application keys into _API_DEV_KEY and
- * _API_DEV_SECRET, and then set _API_DEV_MODE = TRUE.
- * 
  * Finally, test the class by attempting to connect to LinkedIn using the 
  * associated demo.php page, also located at the Google Code location
  * referenced above.                   
