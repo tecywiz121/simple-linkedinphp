@@ -369,7 +369,7 @@ class LinkedIn {
       curl_setopt($handle, CURLOPT_RETURNTRANSFER, TRUE);
       curl_setopt($handle, CURLOPT_SSL_VERIFYPEER, FALSE);
       curl_setopt($handle, CURLOPT_URL, $url);
-      curl_setopt($handle, CURLOPT_VERBOSE, TRUE);
+      curl_setopt($handle, CURLOPT_VERBOSE, FALSE);
       
       // configure the header we are sending to LinkedIn - http://developer.linkedin.com/docs/DOC-1203
       $header = array($oauth_req->to_header(self::_API_OAUTH_REALM));
