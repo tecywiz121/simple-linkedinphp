@@ -401,6 +401,8 @@ class LinkedIn {
         throw new LinkedInException('LinkedIn->fetch(): throttling limit for this user/application has been reached.');
       }
       
+      //TODO - add check for NO response (http_code = 0) from cURL
+      
       // close cURL connection
       curl_close($handle);
       
@@ -928,7 +930,7 @@ class LinkedIn {
         if((array_key_exists('oauth_callback_confirmed', $response['linkedin'])) && ($response['linkedin']['oauth_callback_confirmed'] == 'true')) {
           $return_data['error'] = 'HTTP response from LinkedIn end-point was not code 200';
         } else {
-          $return_data['error'] = 'OAuth callback url was not confirmed by the LinkedIn end-point';
+          $return_data['error'] = 'OAuth callback URL was not confirmed by the LinkedIn end-point';
         }
         $return_data['success'] = FALSE;
       }
