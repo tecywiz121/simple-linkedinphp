@@ -1407,48 +1407,6 @@ class LinkedIn {
 	}
 	
 	/**
-	 * General people search function.
-	 * 
-	 * Takes a string of parameters as input and requests profile data from the 
-	 * Linkedin People Search API.  See the official documentation for $options
-	 * querystring formatting:
-	 * 
-	 *   http://developer.linkedin.com/docs/DOC-1191 
-	 * 
-	 * @param str $options 
-	 *         [OPTIONAL] Data retrieval options.
-	 *            	 
-	 * @return arr 
-	 *         Array containing retrieval success, LinkedIn response.
-	 */
-	public function searchPeople($options = NULL) {
-	  // check passed data
-    if(!is_null($options) && !is_string($options)) {
-	    // bad data passed
-		  throw new LinkedInException('LinkedIn->search(): bad data passed, $options must be of type string.');
-	  }
-	  
-    $query    = self::_URL_API . '/v1/people-search' . trim($options);
-		$response = $this->fetch('GET', $query);
-		
-		/**
-	   * Check for successful request (a 200 response from LinkedIn server) 
-	   * per the documentation linked in method comments above.
-	   */
-		if($response['info']['http_code'] == 200) {
-	    // request successful
-	    $return_data            = $response;
-	    $return_data['success'] = TRUE;
-	  } else {
-	    // request failed
-	    $return_data            = $response;
-	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
-	    $return_data['success'] = FALSE;
-	  }
-		return $return_data;
-	}
-	
-	/**
 	 * Company search.
 	 * 
 	 * Uses the Company Search API to find companies using keywords, industry, 
@@ -1519,6 +1477,48 @@ class LinkedIn {
 	   * per the documentation linked in method comments above.
 	   */
 	  if($response['info']['http_code'] == 200) {
+	    // request successful
+	    $return_data            = $response;
+	    $return_data['success'] = TRUE;
+	  } else {
+	    // request failed
+	    $return_data            = $response;
+	    $return_data['error']   = 'HTTP response from LinkedIn end-point was not code 200';
+	    $return_data['success'] = FALSE;
+	  }
+		return $return_data;
+	}
+	
+	/**
+	 * General people search function.
+	 * 
+	 * Takes a string of parameters as input and requests profile data from the 
+	 * Linkedin People Search API.  See the official documentation for $options
+	 * querystring formatting:
+	 * 
+	 *   http://developer.linkedin.com/docs/DOC-1191 
+	 * 
+	 * @param str $options 
+	 *         [OPTIONAL] Data retrieval options.
+	 *            	 
+	 * @return arr 
+	 *         Array containing retrieval success, LinkedIn response.
+	 */
+	public function searchPeople($options = NULL) {
+	  // check passed data
+    if(!is_null($options) && !is_string($options)) {
+	    // bad data passed
+		  throw new LinkedInException('LinkedIn->search(): bad data passed, $options must be of type string.');
+	  }
+	  
+    $query    = self::_URL_API . '/v1/people-search' . trim($options);
+		$response = $this->fetch('GET', $query);
+		
+		/**
+	   * Check for successful request (a 200 response from LinkedIn server) 
+	   * per the documentation linked in method comments above.
+	   */
+		if($response['info']['http_code'] == 200) {
 	    // request successful
 	    $return_data            = $response;
 	    $return_data['success'] = TRUE;
