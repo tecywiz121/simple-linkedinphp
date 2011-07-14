@@ -166,7 +166,7 @@ try {
         }
       } else {
         // LinkedIn has sent a response, user has granted permission, take the temp access token, the user's secret and the verifier to request the user's real secret key
-        $response = $OBJ_linkedin->retrieveTokenAccess($_GET['oauth_token'], $_SESSION['oauth']['linkedin']['request']['oauth_token_secret'], $_GET['oauth_verifier']);
+        $response = $OBJ_linkedin->retrieveTokenAccess($_SESSION['oauth']['linkedin']['request']['oauth_token'], $_SESSION['oauth']['linkedin']['request']['oauth_token_secret'], $_GET['oauth_verifier']);
         if($response['success'] === TRUE) {
           // the request went through without an error, gather user's 'access' tokens
           $_SESSION['oauth']['linkedin']['access'] = $response['linkedin'];
